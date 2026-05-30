@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Keuangan Keluarga</title>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --hijau: #1a7a4a; --merah: #c0392b; --biru: #1565c0;
+    --bg: #f5f5f5; --card: #ffffff; --border: #e0e0e0;
+    --teks: #1a1a1a; --teks2: #666;
+  }
+  body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--teks); }
+
+  /* NAV */
+  .topbar { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between; height: 56px; position: sticky; top: 0; z-index: 100; }
+  .topbar h1 { font-size: 16px; font-weight: 600; }
+  .topbar span { font-size: 12px; color: var(--teks2); }
+  .nav { background: var(--card); border-bottom: 1px solid var(--border); padding: 0 1.5rem; display: flex; gap: 4px; overflow-x: auto; }
+  .nav button { padding: 10px 16px; font-size: 13px; border: none; background: none; cursor: pointer; color: var(--teks2); border-bottom: 2px solid transparent; white-space: nowrap; }
+  .nav button.active { color: var(--biru); border-bottom-color: var(--biru); font-weight: 500; }
+
+  /* LAYOUT */
+  .main { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* CARDS */
+  .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 1.5rem; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1.25rem; }
+  .card .label { font-size: 11px; color: var(--teks2); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 6px; }
+  .card .nilai { font-size: 22px; font-weight: 600; }
+  .card .sub { font-size: 11px; color: var(--teks2); margin-top: 4px; }
+
+  /* TABEL */
+  .tabel-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #f8f8f8; padding: 10px 12px; text-align: left; font-weight: 500; color: var(--teks2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: middle; }
+  tr:hover td { background: #fafafa; }
+  tr.belum-verif td { background: #fffde7; }
+
+  /* BADGE */
+  .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .badge.makan    { background:#fff3e0; color:#e65100; }
+  .badge.transport{ background:#e3f2fd; color:#1565c0; }
+  .badge.utilitas { background:#f3e5f5; color:#6a1b9a; }
+  .badge.hiburan  { background:#fce4ec; color:#880e4f; }
+  .badge.jajan    { background:#fff8e1; color:#f57f17; }
+  .badge.sewa     { background:#e8eaf6; color:#283593; }
+  .badge.kesehatan{ background:#e8f5e9; color:#1b5e20; }
+  .badge.lainnya  { background:#f5f5f5; color:#555; }
+  .badge.masuk    { background:#e8f5e9; color:#1b5e20; }
+
+  /* AMOUNT */
+  .keluar { color: var(--merah); font-weight: 500; }
+  .masuk  { color: var(--hijau); font-weight: 500; }
+
+  /* TOMBOL */
+  .btn { padding: 8px 16px; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500; border: 1px solid var(--border); background: var(--card); color: var(--teks); }
+  .btn:hover { background: #f5f5f5; }
+  .btn.primary { background: var(--biru); color: #fff; border-color: var(--biru); }
+  .btn.primary:hover { background: #0d47a1; }
+  .btn.danger  { background: var(--merah); color: #fff; border-color: var(--merah); }
+  .btn.sm { padding: 4px 10px; font-size: 12px; }
+
+  /* FORM */
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 1rem; }
+  .form-group label { display: block; font-size: 12px; color: var(--teks2); margin-bottom: 4px; }
+  .form-group input, .form-group select { width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; background: var(--card); }
+  .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--biru); }
+
+  /* BUDGET BAR */
+  .budget-item { margin-bottom: 1rem; }
+  .budget-header { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+  .bar-track { height: 8px; background: #eee; border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width .5s; }
+  .bar-safe { background: var(--hijau); }
+  .bar-warn { background: #e65100; }
+  .bar-over { background: var(--merah); }
+  .budget-nums { display: flex; justify-content: space-between; font-size: 11px; color: var(--teks2); margin-top: 3px; }
+
+  /* ALERT */
+  .alert { display: flex; gap: 10px; padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 13px; }
+  .alert.warn   { background: #fff8e1; border: 1px solid #ffe082; }
+  .alert.danger { background: #ffebee; border: 1px solid #ef9a9a; }
+  .alert.info   { background: #e8f5e9; border: 1px solid #a5d6a7; }
+  .alert .alert-title { font-weight: 500; margin-bottom: 2px; }
+  .alert .alert-desc  { color: var(--teks2); font-size: 12px; }
+
+  /* DOMPET */
+  .dompet-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+  .dompet-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; }
+  .dompet-card .dk-nama { font-size: 12px; color: var(--teks2); margin-bottom: 4px; }
+  .dompet-card .dk-saldo { font-size: 18px; font-weight: 600; }
+  .dompet-card .dk-jenis { font-size: 11px; color: var(--teks2); margin-top: 4px; }
+
+  /* MODAL */
+  .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 200; align-items: center; justify-content: center; }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--card); border-radius: 12px; padding: 1.5rem; width: 100%; max-width: 480px; margin: 1rem; }
+  .modal h3 { margin-bottom: 1rem; font-size: 16px; }
+
+  /* TOOLBAR */
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 1rem; }
+  .toolbar select, .toolbar input { padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+
+  /* NOTIF */
+  .notif { position: fixed; bottom: 1.5rem; right: 1.5rem; background: #1a1a1a; color: #fff; padding: 12px 18px; border-radius: 8px; font-size: 13px; z-index: 999; opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .notif.show { opacity: 1; }
+
+  .section-title { font-size: 15px; font-weight: 600; margin-bottom: 1rem; margin-top: 1.5rem; }
+  .section-title:first-child { margin-top: 0; }
+  .empty { text-align: center; padding: 2rem; color: var(--teks2); font-size: 14px; }
+  .chip-verif { background: #fff9c4; color: #f57f17; font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-left: 4px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>💰 Keuangan Keluarga</h1>
+  <span id="tgl-header"></span>
+</div>
+
+<div class="nav">
+  <button class="active" onclick="gotoPage('dashboard',this)">Dashboard</button>
+  <button onclick="gotoPage('transaksi',this)">Transaksi</button>
+  <button onclick="gotoPage('anggaran',this)">Anggaran</button>
+  <button onclick="gotoPage('dompet',this)">Dompet</button>
+  <button onclick="gotoPage('input',this)">+ Input</button>
+  <button onclick="gotoPage('reminder',this)">Reminder</button>
+  <button onclick="gotoPage('pengaturan',this)">Pengaturan</button>
+</div>
+
+<div class="main">
+
+  <!-- ═══════════════════════════════════ DASHBOARD ═══ -->
+  <div id="page-dashboard" class="page active">
+    <div class="grid-4" id="kartu-ringkasan"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem;" id="chart-wrap">
+      <div class="card">
+        <div class="label" style="margin-bottom:.75rem">Pengeluaran per Kategori</div>
+        <div style="position:relative;height:220px"><canvas id="chartPie"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="label" style="margin-bottom:.75rem">Tren 6 Bulan</div>
+        <div style="position:relative;height:220px"><canvas id="chartTren"></canvas></div>
+      </div>
+    </div>
+    <div class="card" id="kartu-alert">
+      <div class="label" style="margin-bottom:.75rem">Peringatan Aktif</div>
+      <div id="list-alert"><div class="empty">Memuat...</div></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ TRANSAKSI ═══ -->
+  <div id="page-transaksi" class="page">
+    <div class="toolbar">
+      <select id="filter-bulan" onchange="loadTransaksi()"></select>
+      <select id="filter-jenis" onchange="loadTransaksi()">
+        <option value="">Semua jenis</option>
+        <option value="keluar">Pengeluaran</option>
+        <option value="masuk">Pemasukan</option>
+      </select>
+      <select id="filter-kat" onchange="loadTransaksi()">
+        <option value="">Semua kategori</option>
+        <option>makan</option><option>transport</option><option>utilitas</option>
+        <option>hiburan</option><option>jajan</option><option>sewa</option>
+        <option>kesehatan</option><option>lainnya</option>
+      </select>
+      <button class="btn" onclick="eksporExcel()">⬇ Export Excel</button>
+      <button class="btn primary" onclick="bukaModalInput()">+ Tambah</button>
+    </div>
+    <div id="info-verif" style="display:none" class="alert warn">
+      <div><div class="alert-title">⚠️ Ada data dari bot yang belum diverifikasi</div>
+      <div class="alert-desc">Klik tombol ✓ OK atau ✎ Edit pada baris yang ditandai kuning</div></div>
+    </div>
+    <div class="card tabel-wrap">
+      <table>
+        <thead><tr>
+          <th>Tanggal</th><th>Keterangan</th><th>Kategori</th>
+          <th>Dompet</th><th>Jumlah</th><th>Aksi</th>
+        </tr></thead>
+        <tbody id="tbody-transaksi"><tr><td colspan="6" class="empty">Memuat data...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ ANGGARAN ═══ -->
+  <div id="page-anggaran" class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div class="section-title" style="margin:0">Realisasi Anggaran Bulan Ini</div>
+      <button class="btn primary" onclick="bukaModalAnggaran()">+ Atur Anggaran</button>
+    </div>
+    <div class="card" id="list-anggaran"><div class="empty">Memuat...</div></div>
+  </div>
+
+  <!-- ═══════════════════════════════════ DOMPET ═══ -->
+  <div id="page-dompet" class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div class="section-title" style="margin:0">Semua Dompet & Rekening</div>
+      <button class="btn primary" onclick="bukaModalDompet()">+ Tambah Dompet</button>
+    </div>
+    <div class="dompet-grid" id="list-dompet"></div>
+    <div class="card" style="margin-top:1rem;text-align:center">
+      Total semua dompet: <strong id="total-dompet" style="font-size:18px"></strong>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ INPUT ═══ -->
+  <div id="page-input" class="page">
+    <div class="card">
+      <div class="section-title">Input Transaksi Manual</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Jenis</label>
+          <select id="i-jenis">
+            <option value="keluar">Pengeluaran</option>
+            <option value="masuk">Pemasukan</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Tanggal</label>
+          <input type="date" id="i-tanggal">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Keterangan</label>
+          <input type="text" id="i-ket" placeholder="contoh: Belanja beras 5kg">
+        </div>
+        <div class="form-group">
+          <label>Jumlah (Rp)</label>
+          <input type="number" id="i-jumlah" placeholder="contoh: 75000">
+        </div>
+        <div class="form-group">
+          <label>Kategori</label>
+          <select id="i-kat">
+            <option>makan</option><option>transport</option><option>utilitas</option>
+            <option>hiburan</option><option>jajan</option><option>sewa</option>
+            <option>kesehatan</option><option>lainnya</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Dompet</label>
+          <select id="i-dompet"></select>
+        </div>
+      </div>
+      <button class="btn primary" style="width:100%" onclick="simpanTransaksiManual()">Simpan Transaksi</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════ REMINDER ═══ -->
+  <div id="page-reminder" class="page">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div class="section-title" style="margin:0">Bill Reminder</div>
+      <button class="btn primary" onclick="bukaModalReminder()">+ Tambah</button>
+    </div>
+    <div id="list-reminder"></div>
+  </div>
+
+  <!-- ═══════════════════════════════════ PENGATURAN ═══ -->
+  <div id="page-pengaturan" class="page">
+    <div class="card">
+      <div class="section-title">Koneksi Supabase</div>
+      <div class="form-grid">
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Supabase URL</label>
+          <input type="text" id="cfg-url" placeholder="https://xxxx.supabase.co">
+        </div>
+        <div class="form-group" style="grid-column:1/-1">
+          <label>Supabase Anon Key</label>
+          <input type="text" id="cfg-key" placeholder="eyJhbGci...">
+        </div>
+      </div>
+      <button class="btn primary" onclick="simpanConfig()">Simpan & Hubungkan</button>
+      <div id="cfg-status" style="margin-top:.75rem;font-size:13px;color:var(--teks2)"></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<!-- ═══ MODAL EDIT TRANSAKSI ═══ -->
+<div class="modal-bg" id="modal-edit">
+  <div class="modal">
+    <h3>Edit Transaksi</h3>
+    <input type="hidden" id="edit-id">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Jenis</label>
+        <select id="edit-jenis">
+          <option value="keluar">Pengeluaran</option>
+          <option value="masuk">Pemasukan</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Tanggal</label>
+        <input type="date" id="edit-tanggal">
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Keterangan</label>
+        <input type="text" id="edit-ket">
+      </div>
+      <div class="form-group">
+        <label>Jumlah (Rp)</label>
+        <input type="number" id="edit-jumlah">
+      </div>
+      <div class="form-group">
+        <label>Kategori</label>
+        <select id="edit-kat">
+          <option>makan</option><option>transport</option><option>utilitas</option>
+          <option>hiburan</option><option>jajan</option><option>sewa</option>
+          <option>kesehatan</option><option>lainnya</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Dompet</label>
+        <select id="edit-dompet"></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:.5rem">
+      <button class="btn" onclick="tutupModal('modal-edit')">Batal</button>
+      <button class="btn primary" onclick="simpanEdit()">Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL ANGGARAN ═══ -->
+<div class="modal-bg" id="modal-anggaran">
+  <div class="modal">
+    <h3>Atur Batas Anggaran</h3>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Kategori</label>
+        <select id="ang-kat">
+          <option>makan</option><option>transport</option><option>utilitas</option>
+          <option>hiburan</option><option>jajan</option><option>sewa</option>
+          <option>kesehatan</option><option>lainnya</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Batas per bulan (Rp)</label>
+        <input type="number" id="ang-batas" placeholder="500000">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="tutupModal('modal-anggaran')">Batal</button>
+      <button class="btn primary" onclick="simpanAnggaran()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL DOMPET ═══ -->
+<div class="modal-bg" id="modal-dompet">
+  <div class="modal">
+    <h3>Tambah Dompet</h3>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Nama Dompet</label>
+        <input type="text" id="dp-nama" placeholder="contoh: BRI Suami">
+      </div>
+      <div class="form-group">
+        <label>Jenis</label>
+        <select id="dp-jenis">
+          <option value="tunai">Kas Tunai</option>
+          <option value="bank">Bank</option>
+          <option value="ewallet">E-Wallet</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Saldo Awal (Rp)</label>
+        <input type="number" id="dp-saldo" placeholder="0">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="tutupModal('modal-dompet')">Batal</button>
+      <button class="btn primary" onclick="simpanDompet()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MODAL REMINDER ═══ -->
+<div class="modal-bg" id="modal-reminder">
+  <div class="modal">
+    <h3>Tambah Bill Reminder</h3>
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Nama Tagihan</label>
+        <input type="text" id="rm-nama" placeholder="contoh: Listrik PLN">
+      </div>
+      <div class="form-group">
+        <label>Estimasi Jumlah (Rp)</label>
+        <input type="number" id="rm-jumlah" placeholder="350000">
+      </div>
+      <div class="form-group">
+        <label>Tanggal Jatuh Tempo (tiap bulan)</label>
+        <input type="number" id="rm-tgl" min="1" max="31" placeholder="contoh: 28">
+      </div>
+      <div class="form-group">
+        <label>Bayar dari Dompet</label>
+        <select id="rm-dompet"></select>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="tutupModal('modal-reminder')">Batal</button>
+      <button class="btn primary" onclick="simpanReminder()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="notif" id="notif"></div>
+
+<script>
+// ═══ KONFIGURASI ═══════════════════════════════════════════════
+// Ganti dua nilai ini dengan milik kamu!
+const SUPA_URL = localStorage.getItem('supa_url') || 'GANTI_DENGAN_SUPABASE_URL_KAMU';
+const SUPA_KEY = localStorage.getItem('supa_key') || 'GANTI_DENGAN_SUPABASE_KEY_KAMU';
+
+let supabase = null;
+
+function initSupabase() {
+  const url = localStorage.getItem('supa_url') || SUPA_URL;
+  const key = localStorage.getItem('supa_key') || SUPA_KEY;
+  if (url.startsWith('http')) {
+    supabase = window.supabase.createClient(url, key);
+    return true;
+  }
+  return false;
+}
+
+// ═══ NAVIGASI ══════════════════════════════════════════════════
+function gotoPage(nama, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + nama).classList.add('active');
+  btn.classList.add('active');
+  if (nama === 'dashboard')   loadDashboard();
+  if (nama === 'transaksi')   { initFilterBulan(); loadTransaksi(); }
+  if (nama === 'anggaran')    loadAnggaran();
+  if (nama === 'dompet')      loadDompet();
+  if (nama === 'input')       loadSelectDompet('i-dompet');
+  if (nama === 'reminder')    loadReminder();
+  if (nama === 'pengaturan')  loadConfig();
+}
+
+// ═══ HELPER ════════════════════════════════════════════════════
+function rp(angka) {
+  return 'Rp ' + Math.round(angka).toLocaleString('id-ID');
+}
+
+function tampilNotif(pesan, durasi = 3000) {
+  const el = document.getElementById('notif');
+  el.textContent = pesan;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), durasi);
+}
+
+function tutupModal(id) {
+  document.getElementById(id).classList.remove('show');
+}
+
+function bukaModal(id) {
+  document.getElementById(id).classList.add('show');
+}
+
+function badgeKat(kat) {
+  return `<span class="badge ${kat}">${kat}</span>`;
+}
+
+// ═══ DASHBOARD ═════════════════════════════════════════════════
+let chartPie = null, chartTren = null;
+
+async function loadDashboard() {
+  if (!initSupabase()) { tampilHalamanSetup(); return; }
+
+  const hari = new Date();
+  const awal = new Date(hari.getFullYear(), hari.getMonth(), 1).toISOString().split('T')[0];
+  const tgl  = hari.toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'long', year:'numeric'});
+  document.getElementById('tgl-header').textContent = tgl;
+
+  // Ambil transaksi bulan ini
+  const { data: tx } = await supabase.from('transaksi')
+    .select('jumlah,jenis,kategori').gte('tanggal', awal);
+
+  let masuk = 0, keluar = 0, perKat = {};
+  (tx || []).forEach(r => {
+    if (r.jenis === 'masuk') masuk += +r.jumlah;
+    else { keluar += +r.jumlah; perKat[r.kategori] = (perKat[r.kategori]||0) + +r.jumlah; }
+  });
+
+  // Ambil total saldo
+  const { data: dompets } = await supabase.from('dompets').select('saldo');
+  const totalSaldo = (dompets||[]).reduce((s,d) => s + +d.saldo, 0);
+
+  // Kartu ringkasan
+  document.getElementById('kartu-ringkasan').innerHTML = `
+    <div class="card"><div class="label">Total Saldo</div><div class="nilai">${rp(totalSaldo)}</div><div class="sub">semua dompet</div></div>
+    <div class="card"><div class="label">Pemasukan</div><div class="nilai" style="color:var(--hijau)">+${rp(masuk)}</div><div class="sub">bulan ini</div></div>
+    <div class="card"><div class="label">Pengeluaran</div><div class="nilai" style="color:var(--merah)">-${rp(keluar)}</div><div class="sub">bulan ini</div></div>
+    <div class="card"><div class="label">Selisih</div><div class="nilai" style="color:${masuk-keluar>=0?'var(--hijau)':'var(--merah)'}">
+      ${masuk-keluar>=0?'+':''}${rp(masuk-keluar)}</div><div class="sub">${masuk-keluar>=0?'surplus':'defisit'}</div></div>
+  `;
+
+  // Chart pie
+  const labels = Object.keys(perKat);
+  const values = Object.values(perKat);
+  const colors = ['#e65100','#1565c0','#6a1b9a','#880e4f','#1a7a4a','#283593','#2e7d32','#888'];
+  if (chartPie) chartPie.destroy();
+  chartPie = new Chart(document.getElementById('chartPie'), {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data: values, backgroundColor: colors.slice(0, labels.length), borderWidth: 0 }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ font:{size:11}, boxWidth:12 } } } }
+  });
+
+  // Chart tren 6 bulan
+  await loadChartTren();
+
+  // Alert anggaran
+  await loadAlertAnggaran(perKat);
+
+  // Alert reminder
+  await loadAlertReminder();
+}
+
+async function loadChartTren() {
+  const bulanLabel = [], dataMasuk = [], dataKeluar = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(); d.setMonth(d.getMonth() - i);
+    const awal = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
+    const akhir = new Date(d.getFullYear(), d.getMonth()+1, 0).toISOString().split('T')[0];
+    bulanLabel.push(d.toLocaleDateString('id-ID', {month:'short'}));
+    const { data } = await supabase.from('transaksi').select('jumlah,jenis')
+      .gte('tanggal', awal).lte('tanggal', akhir);
+    let m=0, k=0;
+    (data||[]).forEach(r => r.jenis==='masuk' ? m+=+r.jumlah : k+=+r.jumlah);
+    dataMasuk.push(m); dataKeluar.push(k);
+  }
+  if (chartTren) chartTren.destroy();
+  chartTren = new Chart(document.getElementById('chartTren'), {
+    type: 'line',
+    data: { labels: bulanLabel, datasets: [
+      { label:'Pemasukan', data:dataMasuk, borderColor:'#1a7a4a', backgroundColor:'rgba(26,122,74,.08)', tension:.4, fill:true, borderWidth:2, pointRadius:3 },
+      { label:'Pengeluaran', data:dataKeluar, borderColor:'#c0392b', backgroundColor:'rgba(192,57,43,.06)', tension:.4, fill:true, borderWidth:2, pointRadius:3 }
+    ]},
+    options: { responsive:true, maintainAspectRatio:false,
+      scales:{ x:{grid:{display:false}}, y:{ticks:{callback:v=>'Rp'+(v/1000).toFixed(0)+'rb'}} },
+      plugins:{ legend:{ labels:{ font:{size:11}, boxWidth:12 } } }
+    }
+  });
+}
+
+async function loadAlertAnggaran(perKat) {
+  const bln = new Date().getMonth()+1, thn = new Date().getFullYear();
+  const { data: anggaran } = await supabase.from('anggaran').select('*')
+    .eq('bulan', bln).eq('tahun', thn);
+  const alerts = [];
+  (anggaran||[]).forEach(a => {
+    const terpakai = perKat[a.kategori] || 0;
+    const pct = Math.round(terpakai / a.batas_bulanan * 100);
+    if (pct >= 100) alerts.push(`<div class="alert danger"><div><div class="alert-title">🔴 ${a.kategori} melewati batas!</div><div class="alert-desc">${rp(terpakai)} dari ${rp(a.batas_bulanan)} (${pct}%)</div></div></div>`);
+    else if (pct >= 80) alerts.push(`<div class="alert warn"><div><div class="alert-title">⚠️ ${a.kategori} mendekati batas</div><div class="alert-desc">${rp(terpakai)} dari ${rp(a.batas_bulanan)} (${pct}%)</div></div></div>`);
+  });
+  const el = document.getElementById('list-alert');
+  el.innerHTML = alerts.length ? alerts.join('') : '<div class="empty">Tidak ada peringatan</div>';
+}
+
+async function loadAlertReminder() {
+  const { data } = await supabase.from('reminders').select('*,dompets(nama)').eq('aktif', true);
+  const hari = new Date().getDate();
+  const alerts = document.getElementById('list-alert');
+  (data||[]).forEach(r => {
+    const sisa = r.tanggal_jatuh_tempo - hari;
+    if (sisa >= 0 && sisa <= 3) {
+      const tipe = sisa <= 1 ? 'danger' : 'warn';
+      const label = sisa === 0 ? 'hari ini!' : `${sisa} hari lagi`;
+      alerts.innerHTML += `<div class="alert ${tipe}"><div><div class="alert-title">🔔 ${r.nama} jatuh tempo ${label}</div><div class="alert-desc">Estimasi ${rp(r.jumlah_estimasi)} · ${r.dompets?.nama||'-'}</div></div></div>`;
+    }
+  });
+}
+
+// ═══ TRANSAKSI ═════════════════════════════════════════════════
+function initFilterBulan() {
+  const sel = document.getElementById('filter-bulan');
+  if (sel.options.length > 1) return;
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(); d.setMonth(d.getMonth() - i);
+    const val = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const lbl = d.toLocaleDateString('id-ID', {month:'long', year:'numeric'});
+    sel.innerHTML += `<option value="${val}"${i===0?' selected':''}>${lbl}</option>`;
+  }
+}
+
+async function loadTransaksi() {
+  if (!initSupabase()) return;
+  const bulan = document.getElementById('filter-bulan').value;
+  const jenis = document.getElementById('filter-jenis').value;
+  const kat   = document.getElementById('filter-kat').value;
+
+  const [thn, bln] = bulan.split('-');
+  const awal  = `${thn}-${bln}-01`;
+  const akhir = new Date(thn, bln, 0).toISOString().split('T')[0];
+
+  let q = supabase.from('transaksi').select('*,dompets(nama)')
+    .gte('tanggal', awal).lte('tanggal', akhir).order('tanggal', {ascending:false});
+  if (jenis) q = q.eq('jenis', jenis);
+  if (kat)   q = q.eq('kategori', kat);
+
+  const { data } = await q;
+  const rows = data || [];
+  const adaBelum = rows.some(r => !r.diverifikasi);
+  document.getElementById('info-verif').style.display = adaBelum ? 'block' : 'none';
+
+  const tbody = document.getElementById('tbody-transaksi');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="6" class="empty">Tidak ada transaksi</td></tr>'; return; }
+
+  tbody.innerHTML = rows.map(r => `
+    <tr class="${!r.diverifikasi ? 'belum-verif' : ''}">
+      <td>${r.tanggal}${!r.diverifikasi ? '<span class="chip-verif">bot</span>':''}</td>
+      <td>${r.keterangan}</td>
+      <td>${badgeKat(r.kategori)}</td>
+      <td>${r.dompets?.nama||'-'}</td>
+      <td class="${r.jenis}">${r.jenis==='keluar'?'-':'+'} ${rp(r.jumlah)}</td>
+      <td style="display:flex;gap:4px;flex-wrap:wrap">
+        ${!r.diverifikasi ? `<button class="btn sm" onclick="verifikasiTx(${r.id})">✓ OK</button>` : ''}
+        <button class="btn sm" onclick="bukaEdit(${r.id})">✎ Edit</button>
+        <button class="btn sm danger" onclick="hapusTx(${r.id})">✕</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+async function verifikasiTx(id) {
+  await supabase.from('transaksi').update({diverifikasi:true}).eq('id',id);
+  tampilNotif('✓ Transaksi diverifikasi');
+  loadTransaksi();
+}
+
+async function hapusTx(id) {
+  if (!confirm('Hapus transaksi ini?')) return;
+  await supabase.from('transaksi').delete().eq('id',id);
+  tampilNotif('Transaksi dihapus');
+  loadTransaksi();
+}
+
+let dataTxEdit = [];
+async function bukaEdit(id) {
+  const { data } = await supabase.from('transaksi').select('*').eq('id',id).single();
+  if (!data) return;
+  dataTxEdit = data;
+  document.getElementById('edit-id').value = data.id;
+  document.getElementById('edit-jenis').value = data.jenis;
+  document.getElementById('edit-tanggal').value = data.tanggal;
+  document.getElementById('edit-ket').value = data.keterangan;
+  document.getElementById('edit-jumlah').value = data.jumlah;
+  document.getElementById('edit-kat').value = data.kategori;
+  await loadSelectDompet('edit-dompet', data.dompet_id);
+  bukaModal('modal-edit');
+}
+
+async function simpanEdit() {
+  const id     = document.getElementById('edit-id').value;
+  const jenis  = document.getElementById('edit-jenis').value;
+  const tgl    = document.getElementById('edit-tanggal').value;
+  const ket    = document.getElementById('edit-ket').value;
+  const jumlah = +document.getElementById('edit-jumlah').value;
+  const kat    = document.getElementById('edit-kat').value;
+  const dompetId = +document.getElementById('edit-dompet').value;
+
+  // Kembalikan saldo lama, terapkan saldo baru
+  const selisihLama = dataTxEdit.jenis === 'keluar' ? +dataTxEdit.jumlah : -dataTxEdit.jumlah;
+  const selisihBaru = jenis === 'keluar' ? -jumlah : jumlah;
+  const { data: dp } = await supabase.from('dompets').select('saldo').eq('id', dataTxEdit.dompet_id).single();
+  if (dp) await supabase.from('dompets').update({saldo: dp.saldo + selisihLama + selisihBaru}).eq('id', dataTxEdit.dompet_id);
+
+  await supabase.from('transaksi').update({
+    jenis, tanggal:tgl, keterangan:ket, jumlah, kategori:kat, dompet_id:dompetId, diverifikasi:true
+  }).eq('id', id);
+
+  tutupModal('modal-edit');
+  tampilNotif('✓ Transaksi diperbarui');
+  loadTransaksi();
+}
+
+// ═══ INPUT MANUAL ══════════════════════════════════════════════
+function bukaModalInput() { bukaModal('modal-edit'); document.getElementById('edit-id').value=''; }
+
+async function simpanTransaksiManual() {
+  const jenis  = document.getElementById('i-jenis').value;
+  const tgl    = document.getElementById('i-tanggal').value;
+  const ket    = document.getElementById('i-ket').value.trim();
+  const jumlah = +document.getElementById('i-jumlah').value;
+  const kat    = document.getElementById('i-kat').value;
+  const dompetId = +document.getElementById('i-dompet').value;
+
+  if (!ket || !jumlah || !dompetId) { tampilNotif('Lengkapi semua kolom dulu'); return; }
+
+  await supabase.from('transaksi').insert({
+    jenis, tanggal:tgl, keterangan:ket, jumlah, kategori:kat, dompet_id:dompetId, sumber:'manual', diverifikasi:true
+  });
+
+  const { data: dp } = await supabase.from('dompets').select('saldo').eq('id',dompetId).single();
+  const saldoBaru = jenis==='keluar' ? dp.saldo - jumlah : dp.saldo + jumlah;
+  await supabase.from('dompets').update({saldo:saldoBaru}).eq('id',dompetId);
+
+  document.getElementById('i-ket').value = '';
+  document.getElementById('i-jumlah').value = '';
+  tampilNotif('✓ Transaksi tersimpan!');
+}
+
+// ═══ ANGGARAN ══════════════════════════════════════════════════
+async function loadAnggaran() {
+  if (!initSupabase()) return;
+  const hari = new Date();
+  const bln  = hari.getMonth()+1, thn = hari.getFullYear();
+  const awal = new Date(thn, bln-1, 1).toISOString().split('T')[0];
+  const akhir= new Date(thn, bln, 0).toISOString().split('T')[0];
+
+  const { data: anggaran } = await supabase.from('anggaran').select('*').eq('bulan',bln).eq('tahun',thn);
+  const { data: tx } = await supabase.from('transaksi').select('jumlah,kategori,jenis')
+    .gte('tanggal',awal).lte('tanggal',akhir).eq('jenis','keluar');
+
+  const realisasi = {};
+  (tx||[]).forEach(r => realisasi[r.kategori] = (realisasi[r.kategori]||0) + +r.jumlah);
+
+  const el = document.getElementById('list-anggaran');
+  if (!(anggaran||[]).length) { el.innerHTML = '<div class="empty">Belum ada anggaran. Klik "+ Atur Anggaran"</div>'; return; }
+
+  el.innerHTML = (anggaran||[]).map(a => {
+    const terpakai = realisasi[a.kategori]||0;
+    const pct = Math.min(Math.round(terpakai/a.batas_bulanan*100), 100);
+    const kls = pct>=100?'bar-over':pct>=80?'bar-warn':'bar-safe';
+    return `<div class="budget-item">
+      <div class="budget-header"><span>${a.kategori}</span><span>${pct}%</span></div>
+      <div class="bar-track"><div class="bar-fill ${kls}" style="width:${pct}%"></div></div>
+      <div class="budget-nums"><span>${rp(terpakai)}</span><span>batas ${rp(a.batas_bulanan)}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function bukaModalAnggaran() { bukaModal('modal-anggaran'); }
+
+async function simpanAnggaran() {
+  const kat   = document.getElementById('ang-kat').value;
+  const batas = +document.getElementById('ang-batas').value;
+  if (!batas) { tampilNotif('Isi batas anggaran'); return; }
+  const bln = new Date().getMonth()+1, thn = new Date().getFullYear();
+  await supabase.from('anggaran').upsert({kategori:kat, batas_bulanan:batas, bulan:bln, tahun:thn}, {onConflict:'kategori,bulan,tahun'});
+  tutupModal('modal-anggaran');
+  tampilNotif('✓ Anggaran disimpan');
+  loadAnggaran();
+}
+
+// ═══ DOMPET ════════════════════════════════════════════════════
+async function loadDompet() {
+  if (!initSupabase()) return;
+  const { data } = await supabase.from('dompets').select('*');
+  const grid = document.getElementById('list-dompet');
+  const ikon = { tunai:'💵', bank:'🏦', ewallet:'📱' };
+  let total = 0;
+  grid.innerHTML = (data||[]).map(d => {
+    total += +d.saldo;
+    return `<div class="dompet-card">
+      <div style="font-size:24px;margin-bottom:6px">${ikon[d.jenis]||'💳'}</div>
+      <div class="dk-nama">${d.nama}</div>
+      <div class="dk-saldo">${rp(d.saldo)}</div>
+      <div class="dk-jenis">${d.jenis}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('total-dompet').textContent = rp(total);
+}
+
+function bukaModalDompet() { bukaModal('modal-dompet'); }
+
+async function simpanDompet() {
+  const nama  = document.getElementById('dp-nama').value.trim();
+  const jenis = document.getElementById('dp-jenis').value;
+  const saldo = +document.getElementById('dp-saldo').value || 0;
+  if (!nama) { tampilNotif('Isi nama dompet'); return; }
+  await supabase.from('dompets').insert({nama, jenis, saldo});
+  tutupModal('modal-dompet');
+  tampilNotif('✓ Dompet ditambahkan');
+  loadDompet();
+}
+
+async function loadSelectDompet(elId, selectedId = null) {
+  const { data } = await supabase.from('dompets').select('id,nama');
+  const sel = document.getElementById(elId);
+  sel.innerHTML = (data||[]).map(d =>
+    `<option value="${d.id}"${d.id===selectedId?' selected':''}>${d.nama}</option>`
+  ).join('');
+}
+
+// ═══ REMINDER ══════════════════════════════════════════════════
+async function loadReminder() {
+  if (!initSupabase()) return;
+  const { data } = await supabase.from('reminders').select('*,dompets(nama)').eq('aktif',true);
+  const hari = new Date().getDate();
+  const el = document.getElementById('list-reminder');
+  if (!(data||[]).length) { el.innerHTML = '<div class="card"><div class="empty">Belum ada reminder. Klik "+ Tambah"</div></div>'; return; }
+  el.innerHTML = (data||[]).map(r => {
+    const sisa = r.tanggal_jatuh_tempo - hari;
+    const tipe = sisa<=0?'danger':sisa<=3?'warn':'info';
+    const label = sisa<0?'sudah lewat':sisa===0?'hari ini!':sisa<=3?`${sisa} hari lagi`:`${sisa} hari lagi`;
+    return `<div class="alert ${tipe}" style="margin-bottom:.5rem">
+      <div style="flex:1">
+        <div class="alert-title">🔔 ${r.nama} — ${label}</div>
+        <div class="alert-desc">Estimasi ${rp(r.jumlah_estimasi)} · ${r.dompets?.nama||'-'} · tiap tgl ${r.tanggal_jatuh_tempo}</div>
+      </div>
+      <button class="btn sm danger" onclick="hapusReminder(${r.id})">Hapus</button>
+    </div>`;
+  }).join('');
+}
+
+function bukaModalReminder() { loadSelectDompet('rm-dompet'); bukaModal('modal-reminder'); }
+
+async function simpanReminder() {
+  const nama   = document.getElementById('rm-nama').value.trim();
+  const jumlah = +document.getElementById('rm-jumlah').value;
+  const tgl    = +document.getElementById('rm-tgl').value;
+  const dompet = +document.getElementById('rm-dompet').value;
+  if (!nama||!jumlah||!tgl) { tampilNotif('Lengkapi semua kolom'); return; }
+  await supabase.from('reminders').insert({nama, jumlah_estimasi:jumlah, tanggal_jatuh_tempo:tgl, dompet_id:dompet, aktif:true});
+  tutupModal('modal-reminder');
+  tampilNotif('✓ Reminder ditambahkan');
+  loadReminder();
+}
+
+async function hapusReminder(id) {
+  if (!confirm('Hapus reminder ini?')) return;
+  await supabase.from('reminders').update({aktif:false}).eq('id',id);
+  tampilNotif('Reminder dihapus');
+  loadReminder();
+}
+
+// ═══ EKSPOR EXCEL ══════════════════════════════════════════════
+async function eksporExcel() {
+  const bulan = document.getElementById('filter-bulan').value;
+  const [thn, bln] = bulan.split('-');
+  const awal  = `${thn}-${bln}-01`;
+  const akhir = new Date(thn, bln, 0).toISOString().split('T')[0];
+  const { data } = await supabase.from('transaksi').select('tanggal,keterangan,kategori,jenis,jumlah,dompets(nama),diverifikasi')
+    .gte('tanggal',awal).lte('tanggal',akhir).order('tanggal');
+  const rows = (data||[]).map(r => ({
+    Tanggal: r.tanggal, Keterangan: r.keterangan, Kategori: r.kategori,
+    Jenis: r.jenis==='keluar'?'Pengeluaran':'Pemasukan',
+    Jumlah: +r.jumlah, Dompet: r.dompets?.nama||'-',
+    Diverifikasi: r.diverifikasi?'Ya':'Belum'
+  }));
+  const ws = XLSX.utils.json_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Transaksi');
+  XLSX.writeFile(wb, `keuangan_${bulan}.xlsx`);
+  tampilNotif('✓ File Excel berhasil diunduh');
+}
+
+// ═══ PENGATURAN ════════════════════════════════════════════════
+function loadConfig() {
+  document.getElementById('cfg-url').value = localStorage.getItem('supa_url')||'';
+  document.getElementById('cfg-key').value = localStorage.getItem('supa_key')||'';
+}
+
+async function simpanConfig() {
+  const url = document.getElementById('cfg-url').value.trim();
+  const key = document.getElementById('cfg-key').value.trim();
+  if (!url||!key) { tampilNotif('Isi URL dan Key'); return; }
+  localStorage.setItem('supa_url', url);
+  localStorage.setItem('supa_key', key);
+  document.getElementById('cfg-status').textContent = '✓ Konfigurasi disimpan. Silakan pindah ke halaman Dashboard.';
+  tampilNotif('✓ Tersimpan! Memuat dashboard...');
+  setTimeout(() => {
+    const btn = document.querySelector('.nav button');
+    gotoPage('dashboard', btn);
+  }, 1500);
+}
+
+// ═══ INISIALISASI ══════════════════════════════════════════════
+document.getElementById('i-tanggal').value = new Date().toISOString().split('T')[0];
+
+if (initSupabase()) {
+  loadDashboard();
+} else {
+  // Arahkan ke pengaturan jika belum dikonfigurasi
+  const btnPengaturan = document.querySelector('.nav button:last-child');
+  gotoPage('pengaturan', btnPengaturan);
+  document.getElementById('cfg-status').textContent = 'Masukkan Supabase URL dan Key kamu terlebih dahulu.';
+}
+</script>
+</body>
+</html>
