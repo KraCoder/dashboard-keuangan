@@ -374,6 +374,41 @@
   </div>
 </div>
 
+<!-- MODAL EDIT DOMPET -->
+<div class="modal-bg" id="modal-edit-dompet">
+  <div class="modal">
+    <h3>Edit Dompet</h3>
+    <input type="hidden" id="edp-id">
+    <div class="form-grid">
+      <div class="form-group" style="grid-column:1/-1">
+        <label>Nama Dompet</label>
+        <input type="text" id="edp-nama" placeholder="contoh: BCA Suami">
+      </div>
+      <div class="form-group">
+        <label>Jenis</label>
+        <select id="edp-jenis">
+          <option value="tunai">Kas Tunai</option>
+          <option value="bank">Bank</option>
+          <option value="ewallet">E-Wallet</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Koreksi Saldo (Rp)</label>
+        <input type="number" id="edp-saldo" placeholder="masukkan saldo sebenarnya">
+        <div style="font-size:11px;color:var(--teks2);margin-top:4px">Saldo saat ini: <span id="edp-saldo-lama" style="font-weight:600"></span></div>
+      </div>
+    </div>
+    <div class="alert info" style="margin-bottom:1rem">
+      <div><div class="alert-title">ℹ️ Kapan pakai koreksi saldo?</div>
+      <div class="alert-desc">Isi kolom ini jika saldo di aplikasi tidak sesuai kenyataan (misal ada transaksi yang terlewat dicatat). Kosongkan jika hanya ingin ganti nama/jenis.</div></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="tutupModal('modal-edit-dompet')">Batal</button>
+      <button class="btn primary" onclick="simpanEditDompet()">Simpan Perubahan</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL REMINDER -->
 <div class="modal-bg" id="modal-reminder">
   <div class="modal">
@@ -799,7 +834,13 @@ async function loadDompet() {
   grid.innerHTML=(data||[]).map(d=>{
     total+=+d.saldo;
     return `<div class="dompet-card">
-      <div style="font-size:24px;margin-bottom:6px">${ikon[d.jenis]||'💳'}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+        <div style="font-size:24px">${ikon[d.jenis]||'💳'}</div>
+        <div style="display:flex;gap:4px">
+          <button class="btn sm" title="Edit dompet" onclick="bukaEditDompet(${d.id},'${d.nama.replace(/'/g,"\\'")}','${d.jenis}',${d.saldo})">✎</button>
+          <button class="btn sm danger" title="Hapus dompet" onclick="hapusDompet(${d.id},'${d.nama.replace(/'/g,"\\'")}')">🗑</button>
+        </div>
+      </div>
       <div class="dk-nama">${d.nama}</div>
       <div class="dk-saldo">${rp(d.saldo)}</div>
       <div class="dk-jenis">${d.jenis}</div>
@@ -808,7 +849,13 @@ async function loadDompet() {
   document.getElementById('total-dompet').textContent=rp(total);
 }
 
-function bukaModalTambahDompet() { bukaModal('modal-dompet'); }
+function bukaModalTambahDompet() {
+  // Reset form tambah dompet
+  document.getElementById('dp-nama').value='';
+  document.getElementById('dp-saldo').value='';
+  document.getElementById('dp-jenis').value='tunai';
+  bukaModal('modal-dompet');
+}
 
 async function simpanDompet() {
   const nama=document.getElementById('dp-nama').value.trim();
@@ -820,6 +867,42 @@ async function simpanDompet() {
   document.getElementById('dp-nama').value='';
   document.getElementById('dp-saldo').value='';
   tampilNotif('✓ Dompet ditambahkan');
+  loadDompet();
+}
+
+function bukaEditDompet(id, nama, jenis, saldo) {
+  document.getElementById('edp-id').value = id;
+  document.getElementById('edp-nama').value = nama;
+  document.getElementById('edp-jenis').value = jenis;
+  document.getElementById('edp-saldo').value = saldo;
+  document.getElementById('edp-saldo-lama').textContent = rp(saldo);
+  bukaModal('modal-edit-dompet');
+}
+
+async function simpanEditDompet() {
+  const id   = +document.getElementById('edp-id').value;
+  const nama = document.getElementById('edp-nama').value.trim();
+  const jenis= document.getElementById('edp-jenis').value;
+  const saldo= document.getElementById('edp-saldo').value;
+  if (!nama) { tampilNotif('⚠ Nama dompet tidak boleh kosong'); return; }
+  const update = {nama, jenis};
+  if (saldo !== '') update.saldo = +saldo;
+  await SB.from('dompets').update(update).eq('id', id);
+  tutupModal('modal-edit-dompet');
+  tampilNotif('✓ Dompet berhasil diperbarui');
+  loadDompet();
+}
+
+async function hapusDompet(id, nama) {
+  // Cek apakah ada transaksi yang pakai dompet ini
+  const {data: cek} = await SB.from('transaksi').select('id').eq('dompet_id', id).limit(1);
+  if (cek && cek.length > 0) {
+    if (!confirm(`Dompet "${nama}" masih memiliki riwayat transaksi.\n\nJika dihapus, transaksi terkait TIDAK ikut terhapus tapi akan kehilangan referensi dompet.\n\nLanjutkan hapus dompet?`)) return;
+  } else {
+    if (!confirm(`Hapus dompet "${nama}"? Tindakan ini tidak bisa dibatalkan.`)) return;
+  }
+  await SB.from('dompets').delete().eq('id', id);
+  tampilNotif(`🗑 Dompet "${nama}" dihapus`);
   loadDompet();
 }
 
