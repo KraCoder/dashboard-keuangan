@@ -88,10 +88,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
 .tab-btn.active{color:var(--biru)}
 .tab-btn svg{width:22px;height:22px;stroke-width:1.8;fill:none;stroke:currentColor}
 .tab-btn.active svg{stroke-width:2.2}
-/* tombol tengah (+ input) lebih besar */
-.tab-btn.center-btn{
-  flex:1.2;
-}
+.tab-btn.center-btn{ flex:1.2; }
 .tab-btn.center-btn .tab-icon-wrap{
   width:44px;height:44px;border-radius:50%;
   background:var(--biru);
@@ -101,6 +98,63 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
 .tab-btn.center-btn svg{stroke:#fff;width:20px;height:20px}
 .tab-btn.center-btn span{color:var(--teks3)}
 .tab-btn.center-btn.active span{color:var(--biru)}
+
+/* ── DESKTOP NAV (sidebar kiri) ───────────────────────────── */
+.desktop-nav{display:none}
+
+@media(min-width:768px){
+  /* Sembunyikan tabbar mobile, tampilkan sidebar desktop */
+  .tabbar{display:none}
+  body{
+    padding-top:0;
+    padding-bottom:0;
+    padding-left:220px; /* lebar sidebar */
+    display:flex;
+    flex-direction:column;
+  }
+  .topbar{
+    left:220px;
+    height:var(--nav-h);
+    padding-top:0;
+  }
+  .main{
+    padding-top:calc(var(--nav-h) + 1rem);
+    max-width:900px;
+    padding-left:1.5rem;
+    padding-right:1.5rem;
+  }
+  .desktop-nav{
+    display:flex;flex-direction:column;
+    position:fixed;left:0;top:0;bottom:0;width:220px;
+    background:var(--card);border-right:0.5px solid var(--border);
+    padding:1.5rem .75rem;gap:4px;z-index:101;
+    overflow-y:auto;
+  }
+  .desktop-nav-logo{
+    font-size:18px;font-weight:800;
+    padding:.5rem .75rem 1.25rem;
+    color:var(--teks);
+  }
+  .desktop-nav-btn{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 12px;border-radius:10px;
+    border:none;background:none;cursor:pointer;
+    color:var(--teks2);font-size:14px;font-weight:500;
+    text-align:left;width:100%;transition:background .15s,color .15s;
+  }
+  .desktop-nav-btn svg{
+    width:18px;height:18px;stroke-width:1.8;
+    fill:none;stroke:currentColor;flex-shrink:0;
+  }
+  .desktop-nav-btn:hover{background:var(--card2);color:var(--teks)}
+  .desktop-nav-btn.active{
+    background:rgba(21,101,192,.12);color:var(--biru);font-weight:600;
+  }
+  [data-theme="dark"] .desktop-nav-btn.active{background:rgba(10,132,255,.15)}
+  .desktop-nav-divider{
+    height:0.5px;background:var(--border);margin:.5rem 0;
+  }
+}
 
 /* ── KONTEN UTAMA ────────────────────────────────────────── */
 .main{max-width:680px;margin:0 auto;padding:1rem}
@@ -331,8 +385,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
 </head>
 <body>
 
-<!-- ── LAYAR LOGIN (dinonaktifkan sementara) ─────────────── -->
-<div id="layar-login">
+<!-- ── LAYAR LOGIN ────────────────────────────────────────── -->
+<div id="layar-login" class="show">
   <div class="login-box">
     <div class="login-logo">
       <div class="login-emoji">💰</div>
@@ -341,26 +395,65 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
     </div>
     <div class="login-err" id="login-err"></div>
     <div class="login-field">
-      <label>Username</label>
-      <input type="text" id="l-user" placeholder="username" autocomplete="username" autocapitalize="none">
+      <label>Email</label>
+      <input type="email" id="l-email" placeholder="contoh: suami@keluarga.com"
+        autocomplete="email" autocapitalize="none" inputmode="email">
     </div>
     <div class="login-field">
       <label>Password</label>
-      <input type="password" id="l-pass" placeholder="password" autocomplete="current-password">
+      <input type="password" id="l-pass" placeholder="password"
+        autocomplete="current-password">
     </div>
     <button class="btn-login" id="btn-login" onclick="prosesLogin()">Masuk</button>
     <p style="text-align:center;font-size:12px;color:var(--teks3);margin-top:1rem">
-      Lupa password? Hubungi admin untuk reset.
+      Lupa password? Reset lewat Supabase Dashboard.
     </p>
   </div>
 </div>
 
+<!-- ── SIDEBAR DESKTOP ────────────────────────────────────── -->
+<nav class="desktop-nav" id="desktop-nav">
+  <div class="desktop-nav-logo">💰 Keuangan</div>
+
+  <button class="desktop-nav-btn active" id="dnav-dashboard" onclick="gotoPage('dashboard',this)">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    Dashboard
+  </button>
+  <button class="desktop-nav-btn" id="dnav-transaksi" onclick="gotoPage('transaksi',this)">
+    <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>
+    Transaksi
+  </button>
+  <button class="desktop-nav-btn" id="dnav-input" onclick="gotoPage('input',this)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+    Input Transaksi
+  </button>
+  <button class="desktop-nav-btn" id="dnav-anggaran" onclick="gotoPage('anggaran',this)">
+    <svg viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6"/><path d="M15 19V9a2 2 0 00-2-2h-2a2 2 0 00-2 2v10"/><path d="M21 19v-4a2 2 0 00-2-2h-2a2 2 0 00-2 2v4"/><line x1="1" y1="19" x2="23" y2="19"/></svg>
+    Anggaran
+  </button>
+  <button class="desktop-nav-btn" id="dnav-dompet" onclick="gotoPage('dompet',this)">
+    <svg viewBox="0 0 24 24"><path d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z"/><path d="M16 3H8a2 2 0 00-2 2v2h12V5a2 2 0 00-2-2z"/><circle cx="16" cy="14" r="1.5" fill="currentColor"/></svg>
+    Dompet
+  </button>
+  <button class="desktop-nav-btn" id="dnav-reminder" onclick="gotoPage('reminder',this)">
+    <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+    Reminder
+  </button>
+
+  <div class="desktop-nav-divider"></div>
+
+  <button class="desktop-nav-btn" id="dnav-pengaturan" onclick="gotoPage('pengaturan',this)">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    Pengaturan
+  </button>
+</nav>
+
 <!-- ── TOP BAR ───────────────────────────────────────────── -->
 <div class="topbar">
-  <div class="topbar-title">💰 Dashboard Keuangan</div>
+  <div class="topbar-title">💰 Keuangan</div>
   <div class="topbar-right">
     <button class="btn-theme" id="btn-tema" onclick="toggleTema()" title="Mode gelap/terang">🌙</button>
-    <!-- <div class="user-avatar" id="user-avatar" onclick="bukaUserMenu()">?</div> -->
+    <div class="user-avatar" id="user-avatar" onclick="bukaUserMenu()">?</div>
   </div>
 </div>
 
@@ -747,12 +840,26 @@ function buatSupabase(){
 }
 
 // ═══ NAVIGASI ══════════════════════════════════════════════════
-function gotoPage(nama,btn){
+function gotoPage(nama, btn){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  // Nonaktifkan semua tombol di KEDUA navigasi
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.desktop-nav-btn').forEach(b=>b.classList.remove('active'));
+
   const pg=document.getElementById('page-'+nama);
   if(pg) pg.classList.add('active');
+
+  // Aktifkan tombol yang diklik
   if(btn) btn.classList.add('active');
+
+  // Sinkronisasi tombol di navigasi yang TIDAK diklik
+  const dnavId = 'dnav-'+nama;
+  const tabId  = 'tab-'+nama;
+  const dnavBtn = document.getElementById(dnavId);
+  const tabBtn  = document.getElementById(tabId);
+  if(dnavBtn && dnavBtn !== btn) dnavBtn.classList.add('active');
+  if(tabBtn  && tabBtn  !== btn) tabBtn.classList.add('active');
+
   if(nama==='dashboard')  loadDashboard();
   if(nama==='transaksi')  {initFilterBulan();loadTransaksi();}
   if(nama==='anggaran')   loadAnggaran();
@@ -781,83 +888,69 @@ function ikonKat(k){
   return m[k]||'📌';
 }
 
-// ═══ LOGIN ═════════════════════════════════════════════════════
-function muatBcrypt(cb){
-  if(window.dcodeIO&&window.dcodeIO.bcrypt){cb();return;}
-  const s=document.createElement('script');
-  s.src='https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js';
-  s.onload=cb; document.head.appendChild(s);
-}
+// ═══ LOGIN — Supabase Auth ═════════════════════════════════════
 function loginErr(p){
   const el=document.getElementById('login-err');
   el.textContent=p; el.classList.add('show');
 }
-function loginErrSembunyi(){document.getElementById('login-err').classList.remove('show');}
+function loginErrSembunyi(){
+  document.getElementById('login-err').classList.remove('show');
+}
 
 async function prosesLogin(){
   loginErrSembunyi();
-  const username=document.getElementById('l-user').value.trim();
-  const password=document.getElementById('l-pass').value;
-  const btn=document.getElementById('btn-login');
-  if(!username||!password){loginErr('Username dan password harus diisi.');return;}
+  const email   = document.getElementById('l-email').value.trim();
+  const password= document.getElementById('l-pass').value;
+  const btn     = document.getElementById('btn-login');
+
+  if(!email||!password){ loginErr('Email dan password harus diisi.'); return; }
+  if(!buatSupabase()){ loginErr('Konfigurasi belum ada. Hubungi admin.'); return; }
+
   btn.disabled=true; btn.textContent='Memeriksa…';
-  if(!buatSupabase()){
-    loginErr('Konfigurasi belum ada. Hubungi admin.');
-    btn.disabled=false; btn.textContent='Masuk'; return;
-  }
-  try{
-    const{data:users,error}=await SB.from('users')
-      .select('id,username,password_hash,nama_lengkap')
-      .eq('username',username).limit(1);
-    if(error||!users||!users.length){
-      loginErr('Username tidak ditemukan.');
-      btn.disabled=false; btn.textContent='Masuk'; return;
-    }
-    const user=users[0];
-    muatBcrypt(async()=>{
-      const bcrypt=window.dcodeIO.bcrypt;
-      const ok=await bcrypt.compare(password,user.password_hash);
-      if(!ok){
-        loginErr('Password salah. Coba lagi.');
-        btn.disabled=false; btn.textContent='Masuk'; return;
-      }
-      sessionStorage.setItem('user_id',user.id);
-      sessionStorage.setItem('user_nama',user.nama_lengkap||user.username);
-      sessionStorage.setItem('user_username',user.username);
-      tampilAplikasi(user.nama_lengkap||user.username, user.username);
-    });
-  }catch(e){
-    loginErr('Kesalahan koneksi. Coba lagi.');
+
+  const { data, error } = await SB.auth.signInWithPassword({ email, password });
+
+  if(error){
+    const pesan = error.message.includes('Invalid login')
+      ? 'Email atau password salah.'
+      : 'Gagal login: ' + error.message;
+    loginErr(pesan);
     btn.disabled=false; btn.textContent='Masuk';
+    return;
   }
+
+  // Ambil nama tampilan dari email (bagian sebelum @)
+  const namaRaw  = data.user.email.split('@')[0];
+  const nama     = namaRaw.charAt(0).toUpperCase() + namaRaw.slice(1);
+  tampilAplikasi(nama, data.user.email);
 }
 
-function tampilAplikasi(nama, username){
+function tampilAplikasi(nama, email){
   document.getElementById('layar-login').classList.remove('show');
-  const inisial=nama.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-  document.getElementById('user-avatar').textContent=inisial;
-  document.getElementById('um-avatar').textContent=inisial;
-  document.getElementById('um-nama').textContent=nama;
-  document.getElementById('um-username').textContent='@'+(username||'');
-  gotoPage('dashboard', document.getElementById('tab-dashboard'));
+  const inisial = nama.slice(0,2).toUpperCase();
+  document.getElementById('user-avatar').textContent = inisial;
+  document.getElementById('um-avatar').textContent   = inisial;
+  document.getElementById('um-nama').textContent     = nama;
+  document.getElementById('um-username').textContent = email||'';
+  gotoPage('dashboard', document.getElementById('dnav-dashboard')||document.getElementById('tab-dashboard'));
 }
 
-function bukaUserMenu(){bukaModal('modal-user');}
+function bukaUserMenu(){ bukaModal('modal-user'); }
 
-function logout(){
-  if(!confirm('Yakin ingin keluar?'))return;
+async function logout(){
+  if(!confirm('Yakin ingin keluar?')) return;
   tutupModal('modal-user');
-  sessionStorage.clear();
+  await SB.auth.signOut();
   document.getElementById('layar-login').classList.add('show');
-  document.getElementById('l-user').value='';
+  document.getElementById('l-email').value='';
   document.getElementById('l-pass').value='';
   document.getElementById('btn-login').disabled=false;
   document.getElementById('btn-login').textContent='Masuk';
   loginErrSembunyi();
 }
 
-document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')prosesLogin();});
-document.getElementById('l-user').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('l-pass').focus();});
+document.getElementById('l-pass').addEventListener('keydown', e=>{ if(e.key==='Enter') prosesLogin(); });
+document.getElementById('l-email').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('l-pass').focus(); });
 
 // ═══ PENGATURAN ════════════════════════════════════════════════
 function muatHalamanPengaturan(){
@@ -1297,93 +1390,97 @@ async function eksporExcel(){
   tampilNotif('✓ File Excel diunduh');
 }
 
-// ═══ LOGIN (bcrypt) ════════════════════════════════════════════
-function muatBcrypt(cb){
-  if(window.dcodeIO&&window.dcodeIO.bcrypt){cb();return;}
-  const s=document.createElement('script');
-  s.src='https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js';
-  s.onload=cb;document.head.appendChild(s);
+// ═══ LOGIN — Supabase Auth ═════════════════════════════════════
+function loginErr(p){
+  const el=document.getElementById('login-err');
+  el.textContent=p; el.classList.add('show');
 }
-function loginErr(p){const el=document.getElementById('login-err');el.textContent=p;el.classList.add('show');}
-function loginErrSembunyi(){document.getElementById('login-err').classList.remove('show');}
+function loginErrSembunyi(){
+  document.getElementById('login-err').classList.remove('show');
+}
 
 async function prosesLogin(){
   loginErrSembunyi();
-  const username=document.getElementById('l-user').value.trim();
-  const password=document.getElementById('l-pass').value;
-  const btn=document.getElementById('btn-login');
-  if(!username||!password){loginErr('Username dan password harus diisi.');return;}
-  btn.disabled=true;btn.textContent='Memeriksa…';
-  if(!buatSupabase()){
-    loginErr('Konfigurasi belum ada. Hubungi admin.');
-    btn.disabled=false;btn.textContent='Masuk';return;
+  const email   = document.getElementById('l-email').value.trim();
+  const password= document.getElementById('l-pass').value;
+  const btn     = document.getElementById('btn-login');
+
+  if(!email||!password){ loginErr('Email dan password harus diisi.'); return; }
+  if(!buatSupabase()){ loginErr('Konfigurasi Supabase belum ada.'); return; }
+
+  btn.disabled=true; btn.textContent='Memeriksa…';
+
+  const { data, error } = await SB.auth.signInWithPassword({ email, password });
+
+  if(error){
+    const pesan = error.message.includes('Invalid login')
+      ? 'Email atau password salah.'
+      : error.message.includes('Email not confirmed')
+      ? 'Email belum dikonfirmasi. Matikan "Confirm email" di Supabase Auth.'
+      : 'Gagal masuk: ' + error.message;
+    loginErr(pesan);
+    btn.disabled=false; btn.textContent='Masuk';
+    return;
   }
-  try{
-    const{data:users,error}=await SB.from('users')
-      .select('id,username,password_hash,nama_lengkap')
-      .eq('username',username).limit(1);
-    if(error||!users||!users.length){
-      loginErr('Username tidak ditemukan.');
-      btn.disabled=false;btn.textContent='Masuk';return;
-    }
-    const user=users[0];
-    muatBcrypt(async()=>{
-      const bcrypt=window.dcodeIO.bcrypt;
-      const ok=await bcrypt.compare(password,user.password_hash);
-      if(!ok){
-        loginErr('Password salah. Coba lagi.');
-        btn.disabled=false;btn.textContent='Masuk';return;
-      }
-      sessionStorage.setItem('user_id',user.id);
-      sessionStorage.setItem('user_nama',user.nama_lengkap||user.username);
-      sessionStorage.setItem('user_username',user.username);
-      tampilAplikasi(user.nama_lengkap||user.username,user.username);
-    });
-  }catch(e){
-    loginErr('Kesalahan koneksi. Coba lagi.');
-    btn.disabled=false;btn.textContent='Masuk';
-  }
+
+  // Login berhasil
+  const namaEmail = data.user.email.split('@')[0]; // ambil bagian sebelum @
+  const nama = namaEmail.charAt(0).toUpperCase() + namaEmail.slice(1);
+  tampilAplikasi(nama, data.user.email);
 }
 
-function tampilAplikasi(nama,username){
+function tampilAplikasi(nama, email){
   document.getElementById('layar-login').classList.remove('show');
-  const inisial=nama.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-  document.getElementById('user-avatar').textContent=inisial;
-  document.getElementById('um-avatar').textContent=inisial;
-  document.getElementById('um-nama').textContent=nama;
-  document.getElementById('um-username').textContent='@'+(username||'');
-  gotoPage('dashboard',document.getElementById('tab-dashboard'));
+  const inisial = nama.slice(0,2).toUpperCase();
+  document.getElementById('user-avatar').textContent  = inisial;
+  document.getElementById('um-avatar').textContent    = inisial;
+  document.getElementById('um-nama').textContent      = nama;
+  document.getElementById('um-username').textContent  = email||'';
+  gotoPage('dashboard', document.getElementById('tab-dashboard'));
 }
 
-function bukaUserMenu(){bukaModal('modal-user');}
+function bukaUserMenu(){ bukaModal('modal-user'); }
 
-function logout(){
-  if(!confirm('Yakin ingin keluar?'))return;
+async function logout(){
+  if(!confirm('Yakin ingin keluar?')) return;
   tutupModal('modal-user');
-  sessionStorage.clear();
+  await SB.auth.signOut();
+  // Tampilkan kembali layar login
   document.getElementById('layar-login').classList.add('show');
-  document.getElementById('l-user').value='';
+  document.getElementById('l-email').value='';
   document.getElementById('l-pass').value='';
   document.getElementById('btn-login').disabled=false;
   document.getElementById('btn-login').textContent='Masuk';
   loginErrSembunyi();
 }
 
-document.getElementById('l-pass').addEventListener('keydown',e=>{if(e.key==='Enter')prosesLogin();});
-document.getElementById('l-user').addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('l-pass').focus();});
+document.getElementById('l-pass').addEventListener('keydown', e=>{ if(e.key==='Enter') prosesLogin(); });
+document.getElementById('l-email').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('l-pass').focus(); });
 
 // ═══ MULAI ═════════════════════════════════════════════════════
-(function init(){
-  // Login dinonaktifkan sementara — langsung ke dashboard
-  buatSupabase();
-  const btnDashboard = document.getElementById('tab-dashboard');
-  if(buatSupabase()){
-    // Sudah ada config Supabase, langsung dashboard
-    gotoPage('dashboard', btnDashboard);
-  } else {
-    // Belum ada config, arahkan ke pengaturan
-    gotoPage('pengaturan', document.getElementById('tab-lainnya'));
+(async function init(){
+  if(!buatSupabase()){
+    // Belum ada config — arahkan ke pengaturan tanpa login
+    document.getElementById('layar-login').classList.remove('show');
+    gotoPage('pengaturan', document.getElementById('dnav-pengaturan')||document.getElementById('tab-lainnya'));
+    return;
   }
+
+  // Cek sesi login yang masih aktif (setelah refresh halaman)
+  const { data: { session } } = await SB.auth.getSession();
+  if(session && session.user){
+    const namaRaw = session.user.email.split('@')[0];
+    const nama    = namaRaw.charAt(0).toUpperCase() + namaRaw.slice(1);
+    tampilAplikasi(nama, session.user.email);
+  }
+  // Jika tidak ada sesi aktif, layar login tetap tampil (default class="show")
+
+  // Auto-handle jika token expired atau logout dari tab lain
+  SB.auth.onAuthStateChange((event, session)=>{
+    if(event==='SIGNED_OUT'){
+      document.getElementById('layar-login').classList.add('show');
+    }
+  });
 })();
 </script>
 </body>
