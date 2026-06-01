@@ -103,25 +103,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
 .desktop-nav{display:none}
 
 @media(min-width:768px){
-  /* Sembunyikan tabbar mobile, tampilkan sidebar desktop */
   .tabbar{display:none}
+  #topbar-mobile{display:none}
   body{
     padding-top:0;
     padding-bottom:0;
     padding-left:220px;
   }
-  .topbar{
-    left:220px;
-    right:0;
-    height:var(--nav-h);
-    padding-top:0;
-    width:auto;
-  }
   .main{
     max-width:100%;
-    padding-top:calc(var(--nav-h) + 1.25rem);
-    padding-left:1.5rem;
-    padding-right:1.5rem;
+    padding:1.5rem 2rem;
     margin:0;
   }
   .grid-4{grid-template-columns:repeat(4,1fr)}
@@ -129,23 +120,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
     display:flex;flex-direction:column;
     position:fixed;left:0;top:0;bottom:0;width:220px;
     background:var(--card);border-right:0.5px solid var(--border);
-    padding:1.5rem .75rem;gap:4px;z-index:101;
+    padding:1.25rem .75rem .75rem;gap:4px;z-index:101;
     overflow-y:auto;
   }
   .desktop-nav-logo{
-    font-size:18px;font-weight:800;
-    padding:.5rem .75rem 1.25rem;
+    font-size:16px;font-weight:800;
+    padding:.25rem .75rem 1rem;
     color:var(--teks);
   }
   .desktop-nav-btn{
     display:flex;align-items:center;gap:10px;
-    padding:10px 12px;border-radius:10px;
+    padding:9px 12px;border-radius:10px;
     border:none;background:none;cursor:pointer;
     color:var(--teks2);font-size:14px;font-weight:500;
     text-align:left;width:100%;transition:background .15s,color .15s;
   }
   .desktop-nav-btn svg{
-    width:18px;height:18px;stroke-width:1.8;
+    width:17px;height:17px;stroke-width:1.8;
     fill:none;stroke:currentColor;flex-shrink:0;
   }
   .desktop-nav-btn:hover{background:var(--card2);color:var(--teks)}
@@ -452,14 +443,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
     Pengaturan
   </button>
+
+  <!-- Footer sidebar: avatar + tema -->
+  <div class="desktop-nav-divider" style="margin-top:auto"></div>
+  <div style="display:flex;align-items:center;gap:8px;padding:8px 12px">
+    <div class="user-avatar" id="user-avatar" onclick="bukaUserMenu()" style="cursor:pointer">?</div>
+    <div style="flex:1;min-width:0">
+      <div id="um-nama-sidebar" style="font-size:13px;font-weight:600;color:var(--teks);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">—</div>
+    </div>
+    <button class="btn-theme" id="btn-tema" onclick="toggleTema()" title="Mode gelap/terang" style="flex-shrink:0">🌙</button>
+  </div>
 </nav>
 
-<!-- ── TOP BAR ───────────────────────────────────────────── -->
-<div class="topbar">
+<!-- ── TOP BAR (mobile only) ─────────────────────────────── -->
+<div class="topbar" id="topbar-mobile">
   <div class="topbar-title">💰 Keuangan</div>
   <div class="topbar-right">
-    <button class="btn-theme" id="btn-tema" onclick="toggleTema()" title="Mode gelap/terang">🌙</button>
-    <div class="user-avatar" id="user-avatar" onclick="bukaUserMenu()">?</div>
+    <button class="btn-theme" id="btn-tema-mobile" onclick="toggleTema()" title="Mode gelap/terang">🌙</button>
+    <div class="user-avatar" id="user-avatar-mobile" onclick="bukaUserMenu()">?</div>
   </div>
 </div>
 
@@ -811,15 +812,18 @@ let CURRENT_USER_ID = null; // 'suami' atau 'istri', diset saat login
 // ═══ TEMA (DARK MODE) ══════════════════════════════════════════
 function terapkanTema(gelap) {
   document.documentElement.setAttribute('data-theme', gelap?'dark':'light');
-  document.getElementById('btn-tema').textContent = gelap?'☀️':'🌙';
-  const lbl = document.getElementById('um-tema-label');
-  if(lbl) lbl.textContent = gelap?'Mode Terang':'Mode Gelap';
-  localStorage.setItem('tema', gelap?'dark':'light');
-  // Update warna status bar iOS
-  const mt = document.getElementById('meta-theme-color');
-  if(mt) mt.content = gelap?'#1c1c1e':'#ffffff';
-  const mb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
-  if(mb) mb.content = gelap?'black-translucent':'default';
+  // Update semua tombol tema (sidebar + mobile topbar)
+  ['btn-tema','btn-tema-mobile'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.textContent=gelap?'☀️':'🌙';
+  });
+  const lbl=document.getElementById('um-tema-label');
+  if(lbl) lbl.textContent=gelap?'Mode Terang':'Mode Gelap';
+  localStorage.setItem('tema',gelap?'dark':'light');
+  const mt=document.getElementById('meta-theme-color');
+  if(mt) mt.content=gelap?'#1c1c1e':'#ffffff';
+  const mb=document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if(mb) mb.content=gelap?'black-translucent':'default';
 }
 function toggleTema() {
   const gelap = document.documentElement.getAttribute('data-theme')==='dark';
@@ -935,9 +939,6 @@ async function prosesLogin(){
 async function tampilAplikasi(nama, email){
   document.getElementById('layar-login').classList.remove('show');
 
-  // Ambil user_id berdasarkan email dari tabel telegram_users
-  // (kita pakai email sebagai identifier, bukan telegram_id)
-  // Simpan email → user_id di tabel mapping
   const { data: mapping } = await SB
     .from('user_profiles')
     .select('user_id, nama_tampil')
@@ -948,18 +949,26 @@ async function tampilAplikasi(nama, email){
     CURRENT_USER_ID = mapping[0].user_id;
     const namaTampil = mapping[0].nama_tampil || nama;
     const inisial = namaTampil.slice(0,2).toUpperCase();
-    document.getElementById('user-avatar').textContent = inisial;
+    // Update semua elemen nama & avatar (sidebar + mobile)
+    ['user-avatar','user-avatar-mobile'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.textContent=inisial;
+    });
     document.getElementById('um-avatar').textContent   = inisial;
     document.getElementById('um-nama').textContent     = namaTampil;
     document.getElementById('um-username').textContent = email||'';
+    const ns=document.getElementById('um-nama-sidebar');
+    if(ns) ns.textContent=namaTampil;
   } else {
-    // Fallback: gunakan bagian email sebelum @ sebagai user_id
     CURRENT_USER_ID = email.split('@')[0].toLowerCase();
     const inisial = nama.slice(0,2).toUpperCase();
-    document.getElementById('user-avatar').textContent = inisial;
+    ['user-avatar','user-avatar-mobile'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.textContent=inisial;
+    });
     document.getElementById('um-avatar').textContent   = inisial;
     document.getElementById('um-nama').textContent     = nama;
     document.getElementById('um-username').textContent = email||'';
+    const ns=document.getElementById('um-nama-sidebar');
+    if(ns) ns.textContent=nama;
   }
 
   gotoPage('dashboard', document.getElementById('dnav-dashboard')||document.getElementById('tab-dashboard'));
