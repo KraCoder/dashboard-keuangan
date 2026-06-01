@@ -48,15 +48,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
   position:fixed;top:0;left:0;right:0;z-index:100;
   height:calc(var(--nav-h) + var(--safe-top));
   padding-top:var(--safe-top);
-  background:var(--card);
   border-bottom:0.5px solid var(--border);
   display:flex;align-items:center;
   padding-left:1rem;padding-right:1rem;
   gap:10px;
   backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  background:rgba(var(--card-rgb,255,255,255),.88);
+  background:rgba(255,255,255,.88);
+  transition:background .2s;
 }
-[data-theme="dark"] .topbar{background:rgba(44,44,46,.88)}
+[data-theme="dark"] .topbar{background:rgba(28,28,30,.88)}
 .topbar-title{font-size:17px;font-weight:700;flex:1}
 .topbar-right{display:flex;align-items:center;gap:8px}
 .btn-theme{width:32px;height:32px;border-radius:50%;border:none;
@@ -108,21 +108,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
   body{
     padding-top:0;
     padding-bottom:0;
-    padding-left:220px; /* lebar sidebar */
-    display:flex;
-    flex-direction:column;
+    padding-left:220px;
   }
   .topbar{
     left:220px;
+    right:0;
     height:var(--nav-h);
     padding-top:0;
+    width:auto;
   }
   .main{
-    padding-top:calc(var(--nav-h) + 1rem);
-    max-width:900px;
+    max-width:100%;
+    padding-top:calc(var(--nav-h) + 1.25rem);
     padding-left:1.5rem;
     padding-right:1.5rem;
+    margin:0;
   }
+  .grid-4{grid-template-columns:repeat(4,1fr)}
   .desktop-nav{
     display:flex;flex-direction:column;
     position:fixed;left:0;top:0;bottom:0;width:220px;
@@ -157,7 +159,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
 }
 
 /* ── KONTEN UTAMA ────────────────────────────────────────── */
-.main{max-width:680px;margin:0 auto;padding:1rem}
+.main{
+  max-width:680px;
+  margin:0 auto;
+  padding:1rem;
+}
 
 .page{display:none}
 .page.active{display:block}
@@ -396,7 +402,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
     <div class="login-err" id="login-err"></div>
     <div class="login-field">
       <label>Email</label>
-      <input type="email" id="l-email" placeholder="contoh: nama@mail.com"
+      <input type="email" id="l-email" placeholder="contoh: suami@keluarga.com"
         autocomplete="email" autocapitalize="none" inputmode="email">
     </div>
     <div class="login-field">
@@ -800,6 +806,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
 <script>
 // ═══ STATE ═════════════════════════════════════════════════════
 let SB=null, chartPie=null, chartTren=null;
+let CURRENT_USER_ID = null; // 'suami' atau 'istri', diset saat login
 
 // ═══ TEMA (DARK MODE) ══════════════════════════════════════════
 function terapkanTema(gelap) {
@@ -925,13 +932,36 @@ async function prosesLogin(){
   tampilAplikasi(nama, data.user.email);
 }
 
-function tampilAplikasi(nama, email){
+async function tampilAplikasi(nama, email){
   document.getElementById('layar-login').classList.remove('show');
-  const inisial = nama.slice(0,2).toUpperCase();
-  document.getElementById('user-avatar').textContent = inisial;
-  document.getElementById('um-avatar').textContent   = inisial;
-  document.getElementById('um-nama').textContent     = nama;
-  document.getElementById('um-username').textContent = email||'';
+
+  // Ambil user_id berdasarkan email dari tabel telegram_users
+  // (kita pakai email sebagai identifier, bukan telegram_id)
+  // Simpan email → user_id di tabel mapping
+  const { data: mapping } = await SB
+    .from('user_profiles')
+    .select('user_id, nama_tampil')
+    .eq('email', email)
+    .limit(1);
+
+  if (mapping && mapping.length > 0) {
+    CURRENT_USER_ID = mapping[0].user_id;
+    const namaTampil = mapping[0].nama_tampil || nama;
+    const inisial = namaTampil.slice(0,2).toUpperCase();
+    document.getElementById('user-avatar').textContent = inisial;
+    document.getElementById('um-avatar').textContent   = inisial;
+    document.getElementById('um-nama').textContent     = namaTampil;
+    document.getElementById('um-username').textContent = email||'';
+  } else {
+    // Fallback: gunakan bagian email sebelum @ sebagai user_id
+    CURRENT_USER_ID = email.split('@')[0].toLowerCase();
+    const inisial = nama.slice(0,2).toUpperCase();
+    document.getElementById('user-avatar').textContent = inisial;
+    document.getElementById('um-avatar').textContent   = inisial;
+    document.getElementById('um-nama').textContent     = nama;
+    document.getElementById('um-username').textContent = email||'';
+  }
+
   gotoPage('dashboard', document.getElementById('dnav-dashboard')||document.getElementById('tab-dashboard'));
 }
 
@@ -990,10 +1020,14 @@ function hapusConfig(){
 async function loadDashboard(){
   if(!SB)return;
   const awal=new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().split('T')[0];
-  const[{data:tx},{data:dp}]=await Promise.all([
-    SB.from('transaksi').select('jumlah,jenis,kategori').gte('tanggal',awal),
-    SB.from('dompets').select('saldo')
-  ]);
+  let qTx = SB.from('transaksi').select('jumlah,jenis,kategori').gte('tanggal',awal);
+  let qDp = SB.from('dompets').select('saldo');
+  // Filter per user jika sudah login
+  if(CURRENT_USER_ID){
+    qTx = qTx.eq('user_id', CURRENT_USER_ID);
+    qDp = qDp.eq('user_id', CURRENT_USER_ID);
+  }
+  const[{data:tx},{data:dp}]=await Promise.all([qTx, qDp]);
   let masuk=0,keluar=0,perKat={};
   (tx||[]).forEach(r=>{
     if(r.jenis==='masuk')masuk+=+r.jumlah;
@@ -1112,6 +1146,7 @@ async function loadTransaksi(){
   let q=SB.from('transaksi').select('*,dompets(nama)')
     .gte('tanggal',awal).lte('tanggal',akhir)
     .order('tanggal',{ascending:false}).order('id',{ascending:false});
+  if(CURRENT_USER_ID) q=q.eq('user_id',CURRENT_USER_ID);
   if(jenis)q=q.eq('jenis',jenis);
   if(kat)q=q.eq('kategori',kat);
   const{data,error}=await q;
@@ -1221,7 +1256,7 @@ async function simpanTransaksiManual(){
   const kat=document.getElementById('i-kat').value;
   const dompetId=+document.getElementById('i-dompet').value;
   if(!ket||!jumlah||!dompetId){tampilNotif('⚠ Lengkapi semua kolom');return;}
-  await SB.from('transaksi').insert({jenis,tanggal:tgl,keterangan:ket,jumlah,kategori:kat,dompet_id:dompetId,sumber:'manual',diverifikasi:true});
+  await SB.from('transaksi').insert({jenis,tanggal:tgl,keterangan:ket,jumlah,kategori:kat,dompet_id:dompetId,sumber:'manual',diverifikasi:true,user_id:CURRENT_USER_ID});
   const{data:dp}=await SB.from('dompets').select('saldo').eq('id',dompetId).single();
   if(dp){const s=jenis==='keluar'?dp.saldo-jumlah:dp.saldo+jumlah;await SB.from('dompets').update({saldo:s}).eq('id',dompetId);}
   document.getElementById('i-ket').value='';
@@ -1238,10 +1273,10 @@ async function loadAnggaran(){
   const awal=`${thn}-${String(bln).padStart(2,'0')}-01`;
   const akhirDate=new Date(thn,bln,0);
   const akhir=`${akhirDate.getFullYear()}-${String(akhirDate.getMonth()+1).padStart(2,'0')}-${String(akhirDate.getDate()).padStart(2,'0')}`;
-  const[{data:ang},{data:tx}]=await Promise.all([
-    SB.from('anggaran').select('*').eq('bulan',bln).eq('tahun',thn),
-    SB.from('transaksi').select('jumlah,kategori').gte('tanggal',awal).lte('tanggal',akhir).eq('jenis','keluar')
-  ]);
+  let qAng = SB.from('anggaran').select('*').eq('bulan',bln).eq('tahun',thn);
+  let qTx2 = SB.from('transaksi').select('jumlah,kategori').gte('tanggal',awal).lte('tanggal',akhir).eq('jenis','keluar');
+  if(CURRENT_USER_ID){ qAng=qAng.eq('user_id',CURRENT_USER_ID); qTx2=qTx2.eq('user_id',CURRENT_USER_ID); }
+  const[{data:ang},{data:tx}]=await Promise.all([qAng, qTx2]);
   const real={};(tx||[]).forEach(r=>real[r.kategori]=(real[r.kategori]||0)+(+r.jumlah));
   const el=document.getElementById('list-anggaran');
   if(!(ang||[]).length){el.innerHTML='<div class="empty">Belum ada anggaran. Ketuk "+ Atur"</div>';return;}
@@ -1262,16 +1297,18 @@ async function simpanAnggaran(){
   const batas=+document.getElementById('ang-batas').value;
   if(!batas){tampilNotif('⚠ Isi batas');return;}
   const bln=new Date().getMonth()+1,thn=new Date().getFullYear();
-  const{data:ex}=await SB.from('anggaran').select('id').eq('kategori',kat).eq('bulan',bln).eq('tahun',thn);
+  const{data:ex}=await SB.from('anggaran').select('id').eq('kategori',kat).eq('bulan',bln).eq('tahun',thn).eq('user_id',CURRENT_USER_ID);
   if(ex&&ex.length)await SB.from('anggaran').update({batas_bulanan:batas}).eq('id',ex[0].id);
-  else await SB.from('anggaran').insert({kategori:kat,batas_bulanan:batas,bulan:bln,tahun:thn});
+  else await SB.from('anggaran').insert({kategori:kat,batas_bulanan:batas,bulan:bln,tahun:thn,user_id:CURRENT_USER_ID});
   tutupModal('modal-anggaran');tampilNotif('✓ Anggaran disimpan');loadAnggaran();
 }
 
 // ═══ DOMPET ════════════════════════════════════════════════════
 async function loadDompet(){
   if(!SB)return;
-  const{data}=await SB.from('dompets').select('*').order('id');
+  let q=SB.from('dompets').select('*').order('id');
+  if(CURRENT_USER_ID) q=q.eq('user_id',CURRENT_USER_ID);
+  const{data}=await q;
   const ikon={tunai:'💵',bank:'🏦',ewallet:'📱'};
   let total=0;
   const grid=document.getElementById('list-dompet');
@@ -1304,7 +1341,7 @@ async function simpanDompet(){
   const jenis=document.getElementById('dp-jenis').value;
   const saldo=+document.getElementById('dp-saldo').value||0;
   if(!nama){tampilNotif('⚠ Isi nama dompet');return;}
-  await SB.from('dompets').insert({nama,jenis,saldo});
+  await SB.from('dompets').insert({nama,jenis,saldo,user_id:CURRENT_USER_ID});
   tutupModal('modal-dompet');tampilNotif('✓ Dompet ditambahkan');loadDompet();
 }
 function bukaEditDompet(id,nama,jenis,saldo){
@@ -1337,7 +1374,9 @@ async function hapusDompet(id,nama){
 }
 async function loadSelectDompet(elId,selectedId=null){
   if(!SB)return;
-  const{data}=await SB.from('dompets').select('id,nama').order('id');
+  let q=SB.from('dompets').select('id,nama').order('id');
+  if(CURRENT_USER_ID) q=q.eq('user_id',CURRENT_USER_ID);
+  const{data}=await q;
   const sel=document.getElementById(elId);
   sel.innerHTML=(data||[]).map(d=>`<option value="${d.id}"${d.id===selectedId?' selected':''}>${d.nama}</option>`).join('');
 }
@@ -1345,7 +1384,9 @@ async function loadSelectDompet(elId,selectedId=null){
 // ═══ REMINDER ══════════════════════════════════════════════════
 async function loadReminder(){
   if(!SB)return;
-  const{data}=await SB.from('reminders').select('*,dompets(nama)').eq('aktif',true).order('tanggal_jatuh_tempo');
+  let q=SB.from('reminders').select('*,dompets(nama)').eq('aktif',true).order('tanggal_jatuh_tempo');
+  if(CURRENT_USER_ID) q=q.eq('user_id',CURRENT_USER_ID);
+  const{data}=await q;
   const hari=new Date().getDate();
   const el=document.getElementById('list-reminder');
   if(!(data||[]).length){el.innerHTML='<div class="card"><div class="empty">Belum ada reminder</div></div>';return;}
@@ -1367,7 +1408,7 @@ async function simpanReminder(){
   const tgl=+document.getElementById('rm-tgl').value;
   const dompet=+document.getElementById('rm-dompet').value;
   if(!nama||!jumlah||!tgl){tampilNotif('⚠ Lengkapi semua kolom');return;}
-  await SB.from('reminders').insert({nama,jumlah_estimasi:jumlah,tanggal_jatuh_tempo:tgl,dompet_id:dompet,aktif:true});
+  await SB.from('reminders').insert({nama,jumlah_estimasi:jumlah,tanggal_jatuh_tempo:tgl,dompet_id:dompet,aktif:true,user_id:CURRENT_USER_ID});
   tutupModal('modal-reminder');
   document.getElementById('rm-nama').value='';
   document.getElementById('rm-jumlah').value='';
