@@ -525,7 +525,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
   <div id="page-anggaran" class="page">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
       <div class="section-title" style="margin:0">Anggaran Bulan Ini</div>
-      <button class="btn primary" onclick="bukaModal('modal-anggaran')">+ Atur</button>
+      <button class="btn primary" onclick="bukaModalAnggaran()">+ Atur</button>
     </div>
     <div class="card" id="list-anggaran"><div class="empty">Memuat…</div></div>
   </div>
@@ -717,13 +717,40 @@ body{font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text',system-ui,sans-s
   <div class="modal">
     <div class="modal-handle"></div>
     <h3>Atur Batas Anggaran</h3>
+    <!-- Pilihan mode rentang -->
+    <div style="display:flex;gap:8px;margin-bottom:1rem">
+      <button id="mode-btn-bulan" class="btn primary" style="flex:1;font-size:13px"
+        onclick="setModeAnggaran('bulan')">📅 Per Bulan</button>
+      <button id="mode-btn-custom" class="btn" style="flex:1;font-size:13px"
+        onclick="setModeAnggaran('custom')">✏️ Rentang Custom</button>
+    </div>
     <div class="form-2col">
-      <div class="form-group"><label>Kategori</label>
+      <div class="form-group form-full"><label>Kategori</label>
         <select id="ang-kat"><option>makan</option><option>transport</option><option>utilitas</option>
           <option>hiburan</option><option>jajan</option><option>sewa</option>
           <option>kesehatan</option><option>lainnya</option></select></div>
-      <div class="form-group"><label>Batas per bulan (Rp)</label>
+      <div class="form-group form-full"><label>Batas Pengeluaran (Rp)</label>
         <input type="number" id="ang-batas" placeholder="500000" inputmode="numeric"></div>
+      <!-- Mode per bulan -->
+      <div class="form-group form-full" id="mode-bulan-field">
+        <label>Bulan</label>
+        <input type="month" id="ang-bulan">
+        <div style="font-size:11px;color:var(--teks2);margin-top:4px">Rentang: 1 bulan penuh sesuai bulan yang dipilih</div>
+      </div>
+      <!-- Mode custom -->
+      <div class="form-group" id="mode-custom-mulai" style="display:none">
+        <label>Tanggal Mulai</label>
+        <input type="date" id="ang-mulai">
+      </div>
+      <div class="form-group" id="mode-custom-selesai" style="display:none">
+        <label>Tanggal Selesai</label>
+        <input type="date" id="ang-selesai">
+      </div>
+      <div class="form-group form-full" id="mode-custom-info" style="display:none">
+        <div style="font-size:12px;color:var(--teks2);background:var(--card2);padding:8px 10px;border-radius:8px">
+          💡 Contoh siklus gajian tgl 15: mulai 15 Juni → selesai 14 Juli
+        </div>
+      </div>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn" style="flex:1" onclick="tutupModal('modal-anggaran')">Batal</button>
@@ -1280,42 +1307,153 @@ async function simpanTransaksiManual(){
 }
 
 // ═══ ANGGARAN ══════════════════════════════════════════════════
+let modeAnggaran = 'bulan'; // 'bulan' atau 'custom'
+
+function setModeAnggaran(mode){
+  modeAnggaran = mode;
+  document.getElementById('mode-btn-bulan').className  = 'btn' + (mode==='bulan'?' primary':'');
+  document.getElementById('mode-btn-custom').className = 'btn' + (mode==='custom'?' primary':'');
+  document.getElementById('mode-bulan-field').style.display   = mode==='bulan'?'':'none';
+  document.getElementById('mode-custom-mulai').style.display  = mode==='custom'?'':'none';
+  document.getElementById('mode-custom-selesai').style.display= mode==='custom'?'':'none';
+  document.getElementById('mode-custom-info').style.display   = mode==='custom'?'':'none';
+}
+
+function bukaModalAnggaran(){
+  const now = new Date();
+  const bulanDefault = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('ang-bulan').value = bulanDefault;
+  document.getElementById('ang-batas').value = '';
+  // Default rentang custom = siklus gajian tgl 15
+  const tgl15Ini = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-15`;
+  const bDepan   = new Date(now.getFullYear(), now.getMonth()+1, 14);
+  const tgl14Dep = `${bDepan.getFullYear()}-${String(bDepan.getMonth()+1).padStart(2,'0')}-${String(bDepan.getDate()).padStart(2,'0')}`;
+  document.getElementById('ang-mulai').value   = tgl15Ini;
+  document.getElementById('ang-selesai').value = tgl14Dep;
+  setModeAnggaran('bulan');
+  bukaModal('modal-anggaran');
+}
+
 async function loadAnggaran(){
   if(!SB)return;
-  const now=new Date();
-  const bln=now.getMonth()+1, thn=now.getFullYear();
-  // Hitung tanggal aman tanpa masalah timezone
-  const awal=`${thn}-${String(bln).padStart(2,'0')}-01`;
-  const akhirDate=new Date(thn,bln,0);
-  const akhir=`${akhirDate.getFullYear()}-${String(akhirDate.getMonth()+1).padStart(2,'0')}-${String(akhirDate.getDate()).padStart(2,'0')}`;
-  let qAng = SB.from('anggaran').select('*').eq('bulan',bln).eq('tahun',thn);
-  let qTx2 = SB.from('transaksi').select('jumlah,kategori').gte('tanggal',awal).lte('tanggal',akhir).eq('jenis','keluar');
-  if(CURRENT_USER_ID){ qAng=qAng.eq('user_id',CURRENT_USER_ID); qTx2=qTx2.eq('user_id',CURRENT_USER_ID); }
-  const[{data:ang},{data:tx}]=await Promise.all([qAng, qTx2]);
-  const real={};(tx||[]).forEach(r=>real[r.kategori]=(real[r.kategori]||0)+(+r.jumlah));
-  const el=document.getElementById('list-anggaran');
-  if(!(ang||[]).length){el.innerHTML='<div class="empty">Belum ada anggaran. Ketuk "+ Atur"</div>';return;}
-  el.innerHTML=(ang||[]).map(a=>{
-    const t=real[a.kategori]||0,pct=Math.min(Math.round(t/a.batas_bulanan*100),100);
-    const aktual=Math.round(t/a.batas_bulanan*100);
-    const kls=aktual>=100?'bar-over':aktual>=80?'bar-warn':'bar-safe';
-    return `<div class="budget-item">
-      <div class="budget-hdr"><span style="font-weight:600">${a.kategori}</span>
-        <span style="color:${aktual>=100?'var(--merah)':aktual>=80?'#e65100':'var(--teks2)'}">${aktual}%</span></div>
+  const now = new Date();
+  const hari = now.toISOString().split('T')[0]; // tanggal hari ini
+
+  // Ambil semua anggaran user ini — filter yang rentangnya mencakup hari ini
+  let q = SB.from('anggaran').select('*').eq('user_id', CURRENT_USER_ID);
+  const {data: semua} = await q;
+
+  // Filter: hanya tampilkan anggaran yang rentangnya mencakup hari ini
+  const ang = (semua||[]).filter(a => {
+    const mulai   = a.tgl_mulai   || `${a.tahun}-${String(a.bulan).padStart(2,'0')}-01`;
+    const selesai = a.tgl_selesai || akhirBulan(a.tahun, a.bulan);
+    return hari >= mulai && hari <= selesai;
+  });
+
+  if(!ang.length){
+    document.getElementById('list-anggaran').innerHTML =
+      '<div class="empty">Belum ada anggaran aktif. Ketuk "+ Atur"</div>';
+    return;
+  }
+
+  // Hitung realisasi per anggaran sesuai rentang masing-masing
+  const el = document.getElementById('list-anggaran');
+  let html = '';
+
+  for(const a of ang){
+    const mulai   = a.tgl_mulai   || `${a.tahun}-${String(a.bulan).padStart(2,'0')}-01`;
+    const selesai = a.tgl_selesai || akhirBulan(a.tahun, a.bulan);
+
+    let qTx = SB.from('transaksi').select('jumlah')
+      .eq('kategori', a.kategori).eq('jenis','keluar')
+      .gte('tanggal', mulai).lte('tanggal', selesai);
+    if(CURRENT_USER_ID) qTx = qTx.eq('user_id', CURRENT_USER_ID);
+    const {data: txList} = await qTx;
+    const terpakai = (txList||[]).reduce((s,r)=>s+(+r.jumlah),0);
+
+    const pct    = Math.min(Math.round(terpakai/a.batas_bulanan*100), 100);
+    const aktual = Math.round(terpakai/a.batas_bulanan*100);
+    const kls    = aktual>=100?'bar-over':aktual>=80?'bar-warn':'bar-safe';
+    const warna  = aktual>=100?'var(--merah)':aktual>=80?'#e65100':'var(--teks2)';
+
+    // Label rentang
+    const labelRentang = a.tgl_mulai
+      ? `${formatTgl(mulai)} – ${formatTgl(selesai)}`
+      : bulanNama(a.bulan, a.tahun);
+
+    html += `<div class="budget-item">
+      <div class="budget-hdr">
+        <div>
+          <span style="font-weight:600">${a.kategori}</span>
+          <span style="font-size:11px;color:var(--teks2);margin-left:6px">${labelRentang}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="color:${warna};font-weight:600">${aktual}%</span>
+          <button class="btn sm danger" onclick="hapusAnggaran(${a.id})" title="Hapus anggaran">✕</button>
+        </div>
+      </div>
       <div class="bar-track"><div class="bar-fill ${kls}" style="width:${pct}%"></div></div>
-      <div class="budget-nums"><span>${rp(t)}</span><span>batas ${rp(a.batas_bulanan)}</span></div>
+      <div class="budget-nums"><span>${rp(terpakai)}</span><span>batas ${rp(a.batas_bulanan)}</span></div>
     </div>`;
-  }).join('');
+  }
+  el.innerHTML = html;
 }
+
+function akhirBulan(tahun, bulan){
+  const d = new Date(tahun, bulan, 0);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function formatTgl(s){
+  if(!s)return '-';
+  const [y,m,d]=s.split('-');
+  return `${d}/${m}/${y.slice(2)}`;
+}
+function bulanNama(bln, thn){
+  return new Date(thn,bln-1,1).toLocaleDateString('id-ID',{month:'short',year:'2-digit'});
+}
+
+async function hapusAnggaran(id){
+  if(!confirm('Hapus anggaran ini?'))return;
+  await SB.from('anggaran').delete().eq('id',id);
+  tampilNotif('Anggaran dihapus');
+  loadAnggaran();
+}
+
 async function simpanAnggaran(){
-  const kat=document.getElementById('ang-kat').value;
-  const batas=+document.getElementById('ang-batas').value;
-  if(!batas){tampilNotif('⚠ Isi batas');return;}
-  const bln=new Date().getMonth()+1,thn=new Date().getFullYear();
-  const{data:ex}=await SB.from('anggaran').select('id').eq('kategori',kat).eq('bulan',bln).eq('tahun',thn).eq('user_id',CURRENT_USER_ID);
-  if(ex&&ex.length)await SB.from('anggaran').update({batas_bulanan:batas}).eq('id',ex[0].id);
-  else await SB.from('anggaran').insert({kategori:kat,batas_bulanan:batas,bulan:bln,tahun:thn,user_id:CURRENT_USER_ID});
-  tutupModal('modal-anggaran');tampilNotif('✓ Anggaran disimpan');loadAnggaran();
+  const kat   = document.getElementById('ang-kat').value;
+  const batas = +document.getElementById('ang-batas').value;
+  if(!batas){ tampilNotif('⚠ Isi batas pengeluaran'); return; }
+
+  let tgl_mulai, tgl_selesai, bulan, tahun;
+
+  if(modeAnggaran === 'bulan'){
+    const bulanVal = document.getElementById('ang-bulan').value;
+    if(!bulanVal){ tampilNotif('⚠ Pilih bulan'); return; }
+    const [y, m] = bulanVal.split('-').map(Number);
+    tgl_mulai   = `${y}-${String(m).padStart(2,'0')}-01`;
+    tgl_selesai = akhirBulan(y, m);
+    bulan = m; tahun = y;
+  } else {
+    tgl_mulai   = document.getElementById('ang-mulai').value;
+    tgl_selesai = document.getElementById('ang-selesai').value;
+    if(!tgl_mulai || !tgl_selesai){ tampilNotif('⚠ Isi tanggal mulai dan selesai'); return; }
+    if(tgl_mulai >= tgl_selesai){ tampilNotif('⚠ Tanggal mulai harus sebelum tanggal selesai'); return; }
+    const d = new Date(tgl_mulai);
+    bulan = d.getMonth()+1; tahun = d.getFullYear();
+  }
+
+  await SB.from('anggaran').insert({
+    kategori     : kat,
+    batas_bulanan: batas,
+    bulan, tahun,
+    tgl_mulai,
+    tgl_selesai,
+    user_id      : CURRENT_USER_ID
+  });
+
+  tutupModal('modal-anggaran');
+  tampilNotif('✓ Anggaran disimpan');
+  loadAnggaran();
 }
 
 // ═══ DOMPET ════════════════════════════════════════════════════
