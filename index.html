@@ -1075,11 +1075,17 @@ async function loadDashboard(){
 async function loadChartTren(tickColor,gridColor){
   const bln=[],mk=[],kl=[];
   for(let i=5;i>=0;i--){
-    const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);
-    const a=new Date(d.getFullYear(),d.getMonth(),1).toISOString().split('T')[0];
-    const b=new Date(d.getFullYear(),d.getMonth()+1,0).toISOString().split('T')[0];
+    const now=new Date();
+    const thn=now.getFullYear();
+    const bulanIdx=now.getMonth()-i;
+    const d=new Date(thn,bulanIdx,1);
+    const awal=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`;
+    const akhirDate=new Date(d.getFullYear(),d.getMonth()+1,0);
+    const akhir=`${akhirDate.getFullYear()}-${String(akhirDate.getMonth()+1).padStart(2,'0')}-${String(akhirDate.getDate()).padStart(2,'0')}`;
     bln.push(d.toLocaleDateString('id-ID',{month:'short'}));
-    const{data}=await SB.from('transaksi').select('jumlah,jenis').gte('tanggal',a).lte('tanggal',b);
+    let q=SB.from('transaksi').select('jumlah,jenis').gte('tanggal',awal).lte('tanggal',akhir);
+    if(CURRENT_USER_ID) q=q.eq('user_id',CURRENT_USER_ID);
+    const{data}=await q;
     let m=0,k=0;(data||[]).forEach(r=>r.jenis==='masuk'?m+=+r.jumlah:k+=+r.jumlah);
     mk.push(m);kl.push(k);
   }
@@ -1102,10 +1108,10 @@ async function loadChartTren(tickColor,gridColor){
 
 async function loadAlerts(perKat){
   const bln=new Date().getMonth()+1,thn=new Date().getFullYear();
-  const[{data:ang},{data:rem}]=await Promise.all([
-    SB.from('anggaran').select('*').eq('bulan',bln).eq('tahun',thn),
-    SB.from('reminders').select('*,dompets(nama)').eq('aktif',true)
-  ]);
+  let qAng=SB.from('anggaran').select('*').eq('bulan',bln).eq('tahun',thn);
+  let qRem=SB.from('reminders').select('*,dompets(nama)').eq('aktif',true);
+  if(CURRENT_USER_ID){ qAng=qAng.eq('user_id',CURRENT_USER_ID); qRem=qRem.eq('user_id',CURRENT_USER_ID); }
+  const[{data:ang},{data:rem}]=await Promise.all([qAng,qRem]);
   const hari=new Date().getDate();
   let html='';
   (ang||[]).forEach(a=>{
