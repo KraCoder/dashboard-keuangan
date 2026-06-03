@@ -1487,20 +1487,50 @@ async function prosesLogin(){
     return;
   }
 
-  // Login berhasil
-  const namaEmail = data.user.email.split('@')[0]; // ambil bagian sebelum @
-  const nama = namaEmail.charAt(0).toUpperCase() + namaEmail.slice(1);
-  tampilAplikasi(nama, data.user.email);
+  // Login berhasil — ambil profil user
+  await muatProfilDanTampilkan(data.user.email);
 }
 
-function tampilAplikasi(nama, email){
+// Ambil user_id dari tabel user_profiles lalu tampilkan dashboard
+async function muatProfilDanTampilkan(email){
+  const { data: profil, error } = await SB
+    .from('user_profiles')
+    .select('user_id, nama_tampil')
+    .eq('email', email)
+    .limit(1);
+
+  if(error || !profil || profil.length === 0){
+    // Fallback: pakai bagian email sebelum @ sebagai user_id
+    const namaRaw = email.split('@')[0];
+    CURRENT_USER_ID = namaRaw.toLowerCase();
+    const nama = namaRaw.charAt(0).toUpperCase() + namaRaw.slice(1);
+    console.warn('user_profiles tidak ditemukan untuk', email, '— pakai fallback user_id:', CURRENT_USER_ID);
+    setTampilanUser(nama, email, CURRENT_USER_ID);
+  } else {
+    CURRENT_USER_ID = profil[0].user_id;
+    const nama = profil[0].nama_tampil || email.split('@')[0];
+    setTampilanUser(nama, email, CURRENT_USER_ID);
+  }
+}
+
+function setTampilanUser(nama, email, userId){
   document.getElementById('layar-login').classList.remove('show');
   const inisial = nama.slice(0,2).toUpperCase();
-  document.getElementById('user-avatar').textContent  = inisial;
+  // Update semua elemen avatar & nama (sidebar + mobile)
+  ['user-avatar','user-avatar-mobile'].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.textContent=inisial;
+  });
+  const elNamaSidebar = document.getElementById('um-nama-sidebar');
+  if(elNamaSidebar) elNamaSidebar.textContent = nama;
   document.getElementById('um-avatar').textContent    = inisial;
   document.getElementById('um-nama').textContent      = nama;
   document.getElementById('um-username').textContent  = email||'';
-  gotoPage('dashboard', document.getElementById('tab-dashboard'));
+
+  console.log('Login sebagai:', nama, '| user_id:', userId);
+
+  // Buka dashboard
+  const btn = document.getElementById('dnav-dashboard') || document.getElementById('tab-dashboard');
+  gotoPage('dashboard', btn);
 }
 
 function bukaUserMenu(){ bukaModal('modal-user'); }
@@ -1508,8 +1538,8 @@ function bukaUserMenu(){ bukaModal('modal-user'); }
 async function logout(){
   if(!confirm('Yakin ingin keluar?')) return;
   tutupModal('modal-user');
+  CURRENT_USER_ID = null; // reset user_id
   await SB.auth.signOut();
-  // Tampilkan kembali layar login
   document.getElementById('layar-login').classList.add('show');
   document.getElementById('l-email').value='';
   document.getElementById('l-pass').value='';
@@ -1524,24 +1554,21 @@ document.getElementById('l-email').addEventListener('keydown', e=>{ if(e.key==='
 // ═══ MULAI ═════════════════════════════════════════════════════
 (async function init(){
   if(!buatSupabase()){
-    // Belum ada config — arahkan ke pengaturan tanpa login
     document.getElementById('layar-login').classList.remove('show');
     gotoPage('pengaturan', document.getElementById('dnav-pengaturan')||document.getElementById('tab-lainnya'));
     return;
   }
 
-  // Cek sesi login yang masih aktif (setelah refresh halaman)
+  // Cek sesi yang masih aktif (setelah refresh halaman)
   const { data: { session } } = await SB.auth.getSession();
   if(session && session.user){
-    const namaRaw = session.user.email.split('@')[0];
-    const nama    = namaRaw.charAt(0).toUpperCase() + namaRaw.slice(1);
-    tampilAplikasi(nama, session.user.email);
+    await muatProfilDanTampilkan(session.user.email);
   }
-  // Jika tidak ada sesi aktif, layar login tetap tampil (default class="show")
 
-  // Auto-handle jika token expired atau logout dari tab lain
+  // Auto-handle logout dari tab lain
   SB.auth.onAuthStateChange((event, session)=>{
     if(event==='SIGNED_OUT'){
+      CURRENT_USER_ID = null;
       document.getElementById('layar-login').classList.add('show');
     }
   });
