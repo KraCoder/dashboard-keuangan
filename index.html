@@ -919,6 +919,13 @@ function tampilNotif(p,d=3000){
 }
 function tutupModal(id){document.getElementById(id).classList.remove('show');}
 function bukaModal(id){document.getElementById(id).classList.add('show');}
+
+// Klik area gelap di luar modal = tutup modal
+document.addEventListener('click', function(e){
+  if(e.target.classList.contains('modal-bg')){
+    e.target.classList.remove('show');
+  }
+});
 function badgeKat(k){return `<span class="badge ${k||'lainnya'}">${k||'lainnya'}</span>`;}
 function ikonKat(k){
   const m={makan:'🍜',transport:'🏍️',utilitas:'⚡',hiburan:'🎬',
