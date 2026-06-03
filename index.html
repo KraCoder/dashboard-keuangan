@@ -1544,23 +1544,168 @@ async function loadSelectDompet(elId,selectedId=null){
 // ═══ REMINDER ══════════════════════════════════════════════════
 async function loadReminder(){
   if(!SB)return;
+  const el=document.getElementById('list-reminder');
+  el.innerHTML='<div class="empty">Memuat…</div>';
+
   let q=SB.from('reminders').select('*,dompets(nama)').eq('aktif',true).order('tanggal_jatuh_tempo');
   if(CURRENT_USER_ID) q=q.eq('user_id',CURRENT_USER_ID);
   const{data}=await q;
-  const hari=new Date().getDate();
-  const el=document.getElementById('list-reminder');
   if(!(data||[]).length){el.innerHTML='<div class="card"><div class="empty">Belum ada reminder</div></div>';return;}
-  el.innerHTML=(data||[]).map(r=>{
-    const sisa=r.tanggal_jatuh_tempo-hari;
-    const tipe=sisa<0?'danger':sisa<=3?'warn':'info';
-    const lbl=sisa<0?`terlambat ${Math.abs(sisa)} hari`:sisa===0?'hari ini!':sisa===1?'besok':`${sisa} hari lagi`;
-    return `<div class="alert ${tipe}" style="margin-bottom:.5rem">
-      <div style="flex:1"><div class="alert-title">🔔 ${r.nama} — ${lbl}</div>
-      <div class="alert-desc">Estimasi ${rp(r.jumlah_estimasi)} · ${r.dompets?.nama||'-'} · tiap tgl ${r.tanggal_jatuh_tempo}</div></div>
-      <button class="btn sm danger" onclick="hapusReminder(${r.id})">Hapus</button>
+
+  const hari   = new Date().getDate();
+  const bulanIni = new Date().getMonth()+1;
+  const thnIni   = new Date().getFullYear();
+
+  // Cek transaksi bulan ini untuk deteksi otomatis
+  const awalBulan=`${thnIni}-${String(bulanIni).padStart(2,'0')}-01`;
+  let qTx=SB.from('transaksi').select('keterangan,jumlah,tanggal')
+    .eq('jenis','keluar').gte('tanggal',awalBulan);
+  if(CURRENT_USER_ID) qTx=qTx.eq('user_id',CURRENT_USER_ID);
+  const{data:txBulanIni}=await qTx;
+
+  // Fungsi cek apakah ada transaksi yang cocok dengan nama reminder
+  function cekSudahBayar(reminder){
+    if(!txBulanIni||!txBulanIni.length) return null;
+    const namaLower=reminder.nama.toLowerCase();
+    const kata=namaLower.split(' ').filter(k=>k.length>2);
+    return txBulanIni.find(tx=>{
+      const ketLower=(tx.keterangan||'').toLowerCase();
+      return kata.some(k=>ketLower.includes(k));
+    })||null;
+  }
+
+  let html='';
+  for(const r of data){
+    const sisa    = r.tanggal_jatuh_tempo - hari;
+    const sudahBayar = cekSudahBayar(r);
+
+    // Jika sudah terdeteksi bayar via transaksi
+    if(sudahBayar){
+      html+=`<div class="alert info" style="margin-bottom:.5rem;opacity:.75">
+        <div style="flex:1">
+          <div class="alert-title">✅ ${r.nama} — terdeteksi sudah dibayar</div>
+          <div class="alert-desc">
+            Cocok dengan transaksi: "${sudahBayar.keterangan}" ${rp(sudahBayar.jumlah)} tgl ${sudahBayar.tanggal}<br>
+            Estimasi ${rp(r.jumlah_estimasi)} · ${r.dompets?.nama||'-'} · tiap tgl ${r.tanggal_jatuh_tempo}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <button class="btn sm primary" onclick="konfirmasiBayar(${r.id},true)">✓ Tandai Lunas</button>
+          <button class="btn sm" onclick="hapusReminder(${r.id})">Hapus</button>
+        </div>
+      </div>`;
+      continue;
+    }
+
+    const tipe = sisa<0?'danger':sisa<=3?'warn':'info';
+    const lbl  = sisa<0?`⚠ terlambat ${Math.abs(sisa)} hari`
+               : sisa===0?'📌 jatuh tempo hari ini!'
+               : sisa===1?'⏰ besok'
+               : `${sisa} hari lagi`;
+
+    html+=`<div class="alert ${tipe}" style="margin-bottom:.5rem">
+      <div style="flex:1">
+        <div class="alert-title">🔔 ${r.nama} — ${lbl}</div>
+        <div class="alert-desc">Estimasi ${rp(r.jumlah_estimasi)} · ${r.dompets?.nama||'-'} · tiap tgl ${r.tanggal_jatuh_tempo}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+        <button class="btn sm primary" onclick="bukaModalBayar(${r.id},'${r.nama.replace(/'/g,"\\'")}',${r.jumlah_estimasi},${r.dompet_id||0})">💰 Bayar</button>
+        <button class="btn sm danger" onclick="hapusReminder(${r.id})">Hapus</button>
+      </div>
     </div>`;
-  }).join('');
+  }
+  el.innerHTML = html || '<div class="card"><div class="empty">Semua tagihan sudah lunas ✓</div></div>';
 }
+
+// Tandai lunas tanpa input — cocok untuk yang terdeteksi otomatis
+async function konfirmasiBayar(reminderId, otomatis=false){
+  if(!otomatis && !confirm('Tandai tagihan ini sebagai sudah dibayar?')) return;
+  // Simpan riwayat pembayaran
+  const{data:r}=await SB.from('reminders').select('*').eq('id',reminderId).single();
+  if(r){
+    await SB.from('riwayat_pembayaran').insert({
+      reminder_id  : reminderId,
+      nama         : r.nama,
+      jumlah       : r.jumlah_estimasi,
+      tgl_bayar    : new Date().toISOString().split('T')[0],
+      user_id      : CURRENT_USER_ID,
+      otomatis     : otomatis
+    }).then(()=>{}).catch(()=>{}); // gagal simpan riwayat tidak masalah
+  }
+  tampilNotif(`✅ ${r?.nama||'Tagihan'} ditandai lunas`);
+  loadReminder();
+}
+
+// Modal konfirmasi bayar manual dengan input transaksi opsional
+async function bukaModalBayar(reminderId, nama, jumlah, dompetId){
+  // Buat modal bayar dinamis
+  const existing=document.getElementById('modal-bayar');
+  if(existing) existing.remove();
+
+  const modal=document.createElement('div');
+  modal.className='modal-bg show';
+  modal.id='modal-bayar';
+  modal.innerHTML=`<div class="modal">
+    <div class="modal-handle"></div>
+    <h3>💰 Konfirmasi Pembayaran</h3>
+    <p style="font-size:14px;color:var(--teks2);margin-bottom:1rem">${nama}</p>
+    <div class="form-group" style="margin-bottom:.75rem">
+      <label>Jumlah yang dibayar (Rp)</label>
+      <input type="number" id="bayar-jumlah" value="${jumlah}" inputmode="numeric">
+    </div>
+    <div class="form-group" style="margin-bottom:1rem">
+      <label>Catat sebagai transaksi pengeluaran?</label>
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button id="bayar-catat-ya"  class="btn primary" style="flex:1;font-size:13px" onclick="setBayarCatat(true)">Ya, catat</button>
+        <button id="bayar-catat-tidak" class="btn" style="flex:1;font-size:13px" onclick="setBayarCatat(false)">Tidak perlu</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn" style="flex:1" onclick="document.getElementById('modal-bayar').remove()">Batal</button>
+      <button class="btn primary" style="flex:2" onclick="prosesKonfirmasiBayar(${reminderId},'${nama.replace(/'/g,"\\'")}',${dompetId})">Konfirmasi Lunas</button>
+    </div>
+  </div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener('click',e=>{ if(e.target===modal) modal.remove(); });
+}
+
+let _bayarCatat=true;
+function setBayarCatat(v){
+  _bayarCatat=v;
+  document.getElementById('bayar-catat-ya').className   ='btn'+(v?' primary':'');
+  document.getElementById('bayar-catat-tidak').className='btn'+(!v?' primary':'');
+}
+
+async function prosesKonfirmasiBayar(reminderId, nama, dompetId){
+  const jumlah=+document.getElementById('bayar-jumlah').value;
+  if(!jumlah){tampilNotif('⚠ Isi jumlah pembayaran');return;}
+  const tglBayar=new Date().toISOString().split('T')[0];
+
+  // Catat sebagai transaksi jika dipilih
+  if(_bayarCatat && dompetId){
+    await SB.from('transaksi').insert({
+      tanggal     : tglBayar,
+      keterangan  : nama.toLowerCase(),
+      jumlah,
+      jenis       : 'keluar',
+      kategori    : 'utilitas',
+      dompet_id   : dompetId,
+      user_id     : CURRENT_USER_ID,
+      sumber      : 'manual',
+      diverifikasi: true
+    });
+    // Update saldo dompet
+    const{data:dp}=await SB.from('dompets').select('saldo').eq('id',dompetId).single();
+    if(dp) await SB.from('dompets').update({saldo:dp.saldo-jumlah}).eq('id',dompetId);
+    tampilNotif('✅ Lunas & dicatat sebagai transaksi');
+  } else {
+    tampilNotif('✅ Tagihan ditandai lunas');
+  }
+
+  document.getElementById('modal-bayar').remove();
+  loadReminder();
+}
+
 function bukaModalReminder(){loadSelectDompet('rm-dompet');bukaModal('modal-reminder');}
 async function simpanReminder(){
   const nama=document.getElementById('rm-nama').value.trim();
