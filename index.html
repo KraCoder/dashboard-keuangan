@@ -292,6 +292,10 @@ tr.belum-verif td{background:rgba(230,57,70,.04)}
 .user-menu-item svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;flex-shrink:0}
 .user-menu-item.danger-item{color:var(--merah)}
 .koneksi-ok{color:var(--hijau);font-size:13px;font-weight:600}
+.filter-mode-btn{padding:4px 12px;font-size:12px;font-weight:500;border:1px solid var(--border);
+  border-radius:20px;background:transparent;color:var(--teks2);cursor:pointer;transition:all .15s;white-space:nowrap}
+.filter-mode-btn.active{background:var(--aksen);color:#fff;border-color:var(--aksen)}
+.filter-mode-btn:hover:not(.active){background:var(--card2);color:var(--teks)}
 .koneksi-belum{color:var(--merah);font-size:13px;font-weight:600}
 </style>
 </head>
@@ -411,6 +415,35 @@ tr.belum-verif td{background:rgba(230,57,70,.04)}
 
   <!-- DASHBOARD -->
   <div id="page-dashboard" class="page active">
+
+    <!-- Filter Periode -->
+    <div class="card" style="margin-bottom:12px;padding:.75rem 1rem">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--teks2);font-weight:500;white-space:nowrap">Periode:</span>
+        <!-- Tombol mode -->
+        <div style="display:flex;gap:4px;flex:1;flex-wrap:wrap">
+          <button class="filter-mode-btn active" id="fmode-bulan" onclick="setFilterMode('bulan')">Per Bulan</button>
+          <button class="filter-mode-btn" id="fmode-tahun" onclick="setFilterMode('tahun')">Per Tahun</button>
+          <button class="filter-mode-btn" id="fmode-custom" onclick="setFilterMode('custom')">Custom</button>
+        </div>
+        <!-- Input per bulan -->
+        <div id="finput-bulan" style="display:flex;gap:6px;align-items:center">
+          <input type="month" id="f-bulan-val" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--teks)">
+        </div>
+        <!-- Input per tahun -->
+        <div id="finput-tahun" style="display:none;gap:6px;align-items:center">
+          <select id="f-tahun-val" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--teks)"></select>
+        </div>
+        <!-- Input custom -->
+        <div id="finput-custom" style="display:none;gap:6px;align-items:center;flex-wrap:wrap">
+          <input type="date" id="f-custom-mulai" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--teks)">
+          <span style="font-size:12px;color:var(--teks2)">s/d</span>
+          <input type="date" id="f-custom-selesai" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--teks)">
+        </div>
+        <button class="btn primary" style="padding:5px 14px;font-size:13px;white-space:nowrap" onclick="loadDashboard()">Tampilkan</button>
+      </div>
+    </div>
+
     <div class="grid-4" id="kartu-ringkasan">
       <div class="metric"><div class="m-label">Total Saldo</div><div class="m-val">—</div></div>
       <div class="metric"><div class="m-label">Pemasukan</div><div class="m-val">—</div></div>
@@ -418,7 +451,10 @@ tr.belum-verif td{background:rgba(230,57,70,.04)}
       <div class="metric"><div class="m-label">Selisih</div><div class="m-val">—</div></div>
     </div>
     <div class="card">
-      <div class="card-title">Pengeluaran per Kategori</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.75rem">
+        <div class="card-title" style="margin:0">Pengeluaran per Kategori</div>
+        <div id="label-periode" style="font-size:12px;color:var(--teks2)"></div>
+      </div>
       <div class="chart-wrap h200"><canvas id="chartPie"></canvas></div>
     </div>
     <div class="card">
@@ -1001,39 +1037,106 @@ function hapusConfig(){
   SB=null; muatHalamanPengaturan(); tampilNotif('Konfigurasi dihapus');
 }
 
+// ═══ FILTER DASHBOARD ══════════════════════════════════════════
+let filterMode = 'bulan'; // 'bulan' | 'tahun' | 'custom'
+
+function setFilterMode(mode){
+  filterMode = mode;
+  ['bulan','tahun','custom'].forEach(m=>{
+    document.getElementById('fmode-'+m).classList.toggle('active', m===mode);
+    document.getElementById('finput-'+m).style.display = m===mode ? 'flex' : 'none';
+  });
+}
+
+function initFilterDashboard(){
+  // Set default bulan = bulan ini
+  const now = new Date();
+  document.getElementById('f-bulan-val').value =
+    `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  // Isi pilihan tahun (5 tahun terakhir)
+  const sel = document.getElementById('f-tahun-val');
+  if(!sel.options.length){
+    for(let y=now.getFullYear(); y>=now.getFullYear()-4; y--){
+      sel.innerHTML += `<option value="${y}"${y===now.getFullYear()?' selected':''}>${y}</option>`;
+    }
+  }
+  // Set default custom = bulan ini
+  const awal  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+  const akhirD= new Date(now.getFullYear(), now.getMonth()+1, 0);
+  const akhir = `${akhirD.getFullYear()}-${String(akhirD.getMonth()+1).padStart(2,'0')}-${String(akhirD.getDate()).padStart(2,'0')}`;
+  document.getElementById('f-custom-mulai').value   = awal;
+  document.getElementById('f-custom-selesai').value = akhir;
+  setFilterMode('bulan');
+}
+
+function getRentangFilter(){
+  const now = new Date();
+  if(filterMode === 'bulan'){
+    const val = document.getElementById('f-bulan-val').value;
+    if(!val) return null;
+    const [y,m] = val.split('-').map(Number);
+    const awal  = `${y}-${String(m).padStart(2,'0')}-01`;
+    const akhirD= new Date(y, m, 0);
+    const akhir = `${akhirD.getFullYear()}-${String(akhirD.getMonth()+1).padStart(2,'0')}-${String(akhirD.getDate()).padStart(2,'0')}`;
+    const label = new Date(y,m-1,1).toLocaleDateString('id-ID',{month:'long',year:'numeric'});
+    return { awal, akhir, label };
+  }
+  if(filterMode === 'tahun'){
+    const y = +document.getElementById('f-tahun-val').value;
+    return { awal:`${y}-01-01`, akhir:`${y}-12-31`, label:`Tahun ${y}` };
+  }
+  if(filterMode === 'custom'){
+    const awal   = document.getElementById('f-custom-mulai').value;
+    const akhir  = document.getElementById('f-custom-selesai').value;
+    if(!awal||!akhir) return null;
+    const label  = `${awal} s/d ${akhir}`;
+    return { awal, akhir, label };
+  }
+  return null;
+}
+
 // ═══ DASHBOARD ═════════════════════════════════════════════════
 async function loadDashboard(){
-  if(!SB)return;
-  const awal=new Date(new Date().getFullYear(),new Date().getMonth(),1).toISOString().split('T')[0];
-  let qTx = SB.from('transaksi').select('jumlah,jenis,kategori').gte('tanggal',awal);
+  if(!SB) return;
+
+  // Init filter jika belum
+  if(!document.getElementById('f-bulan-val').value) initFilterDashboard();
+
+  const rentang = getRentangFilter();
+  if(!rentang){ tampilNotif('⚠ Pilih rentang periode dulu'); return; }
+  const { awal, akhir, label } = rentang;
+
+  // Update label periode di card
+  const lp = document.getElementById('label-periode');
+  if(lp) lp.textContent = label;
+
+  let qTx = SB.from('transaksi').select('jumlah,jenis,kategori')
+    .gte('tanggal', awal).lte('tanggal', akhir);
   let qDp = SB.from('dompets').select('saldo');
-  // Filter per user jika sudah login
-  if(CURRENT_USER_ID){
-    qTx = qTx.eq('user_id', CURRENT_USER_ID);
-    qDp = qDp.eq('user_id', CURRENT_USER_ID);
-  }
+  if(CURRENT_USER_ID){ qTx=qTx.eq('user_id',CURRENT_USER_ID); qDp=qDp.eq('user_id',CURRENT_USER_ID); }
+
   const[{data:tx},{data:dp}]=await Promise.all([qTx, qDp]);
   let masuk=0,keluar=0,perKat={};
   (tx||[]).forEach(r=>{
-    if(r.jenis==='masuk')masuk+=+r.jumlah;
-    else{keluar+=+r.jumlah;perKat[r.kategori]=(perKat[r.kategori]||0)+(+r.jumlah);}
+    if(r.jenis==='masuk') masuk+=+r.jumlah;
+    else{ keluar+=+r.jumlah; perKat[r.kategori]=(perKat[r.kategori]||0)+(+r.jumlah); }
   });
   const totalSaldo=(dp||[]).reduce((s,d)=>s+(+d.saldo),0);
   const selisih=masuk-keluar;
+
   document.getElementById('kartu-ringkasan').innerHTML=`
     <div class="metric"><div class="m-label">Total Saldo</div><div class="m-val">${rp(totalSaldo)}</div></div>
-    <div class="metric"><div class="m-label">Pemasukan</div><div class="m-val" style="color:var(--hijau)">+${rp(masuk)}</div><div class="m-sub">bulan ini</div></div>
-    <div class="metric"><div class="m-label">Pengeluaran</div><div class="m-val" style="color:var(--merah)">-${rp(keluar)}</div><div class="m-sub">bulan ini</div></div>
+    <div class="metric"><div class="m-label">Pemasukan</div><div class="m-val" style="color:var(--hijau)">+${rp(masuk)}</div><div class="m-sub">${label}</div></div>
+    <div class="metric"><div class="m-label">Pengeluaran</div><div class="m-val" style="color:var(--merah)">-${rp(keluar)}</div><div class="m-sub">${label}</div></div>
     <div class="metric"><div class="m-label">Selisih</div><div class="m-val" style="color:${selisih>=0?'var(--hijau)':'var(--merah)'}">${selisih>=0?'+':''}${rp(selisih)}</div></div>`;
 
-  // Warna chart sesuai tema
   const tickColor=isDark()?'#aeaeb2':'#6b6b6b';
   const gridColor=isDark()?'rgba(255,255,255,.06)':'rgba(0,0,0,.06)';
 
   // Pie chart
-  if(chartPie)chartPie.destroy();
-  const labels=Object.keys(perKat),values=Object.values(perKat);
-  const colors=['#e65100','#1565c0','#6a1b9a','#880e4f','#1a7a4a','#283593','#2e7d32','#888'];
+  if(chartPie) chartPie.destroy();
+  const labels=Object.keys(perKat), values=Object.values(perKat);
+  const colors=['#e63946','#1565c0','#6a1b9a','#e65100','#1a7a4a','#283593','#2e7d32','#888'];
   if(labels.length){
     chartPie=new Chart(document.getElementById('chartPie'),{
       type:'doughnut',
@@ -1041,9 +1144,11 @@ async function loadDashboard(){
       options:{responsive:true,maintainAspectRatio:false,
         plugins:{legend:{position:'bottom',labels:{color:tickColor,font:{size:11},boxWidth:12,padding:8}}}}
     });
+  } else {
+    const ctx=document.getElementById('chartPie').getContext('2d');
+    ctx.clearRect(0,0,ctx.canvas.width,ctx.canvas.height);
   }
 
-  // Tren chart
   await loadChartTren(tickColor,gridColor);
   await loadAlerts(perKat);
 }
