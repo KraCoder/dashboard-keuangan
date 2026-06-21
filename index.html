@@ -140,13 +140,32 @@ body{
   text-transform:uppercase;letter-spacing:.6px;margin-bottom:.85rem}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
 .grid-4{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
-.metric-card{background:var(--card);border-radius:12px;padding:.9rem 1rem;border:1px solid var(--border2)}
-.metric-label{font-size:11px;color:var(--teks3);font-weight:500;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
-.metric-val{font-size:20px;font-weight:700;letter-spacing:-.3px;line-height:1.2}
-.metric-sub{font-size:11px;color:var(--teks3);margin-top:3px}
-.metric-card.aksen{background:var(--aksen);border-color:var(--aksen)}
-.metric-card.aksen .metric-label,.metric-card.aksen .metric-sub{color:rgba(255,255,255,.7)}
-.metric-card.aksen .metric-val{color:#fff}
+.metric{background:var(--card);border-radius:12px;padding:.9rem 1rem;border:1px solid var(--border2)}
+.m-label{font-size:11px;color:var(--teks3);font-weight:500;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}
+.m-val{font-size:20px;font-weight:700;letter-spacing:-.3px;line-height:1.2}
+.m-sub{font-size:11px;color:var(--teks3);margin-top:3px}
+.metric.aksen{background:var(--aksen);border-color:var(--aksen)}
+.metric.aksen .m-label,.metric.aksen .m-sub{color:rgba(255,255,255,.7)}
+.metric.aksen .m-val{color:#fff}
+/* ── FILTER PERIODE ──────────────────────────────────────── */
+.filter-bar{background:var(--card);border:1px solid var(--border2);border-radius:12px;
+  padding:.75rem 1rem;margin-bottom:12px}
+.filter-bar-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:.6rem}
+.filter-bar-label{font-size:12px;font-weight:600;color:var(--teks2);white-space:nowrap}
+.filter-modes{display:flex;gap:4px;flex-wrap:wrap}
+.fmode-btn{padding:4px 12px;font-size:12px;font-weight:600;border:1.5px solid var(--border);
+  border-radius:20px;background:transparent;color:var(--teks2);cursor:pointer;
+  transition:all .15s;white-space:nowrap}
+.fmode-btn.active{background:var(--aksen);color:#fff;border-color:var(--aksen)}
+.fmode-btn:hover:not(.active){background:var(--card2);color:var(--teks);border-color:var(--teks2)}
+.filter-inputs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.filter-inputs input[type="month"],
+.filter-inputs input[type="date"],
+.filter-inputs select{padding:7px 10px;border:1.5px solid var(--border);
+  border-radius:8px;font-size:13px;background:var(--card);color:var(--teks);
+  font-weight:500;-webkit-appearance:none;min-width:0}
+.filter-inputs input:focus,.filter-inputs select:focus{outline:none;border-color:var(--aksen)}
+.filter-sep{font-size:12px;color:var(--teks3);font-weight:500}
 /* ── TOMBOL ──────────────────────────────────────────────── */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;
   padding:9px 16px;border-radius:8px;font-size:13.5px;cursor:pointer;font-weight:500;
@@ -417,30 +436,28 @@ tr.belum-verif td{background:rgba(230,57,70,.04)}
   <div id="page-dashboard" class="page active">
 
     <!-- Filter Periode -->
-    <div class="card" style="margin-bottom:12px;padding:.75rem 1rem">
-      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <span style="font-size:12px;color:var(--teks2);font-weight:500;white-space:nowrap">Periode:</span>
-        <!-- Tombol mode -->
-        <div style="display:flex;gap:4px;flex:1;flex-wrap:wrap">
-          <button class="filter-mode-btn active" id="fmode-bulan" onclick="setFilterMode('bulan')">Per Bulan</button>
-          <button class="filter-mode-btn" id="fmode-tahun" onclick="setFilterMode('tahun')">Per Tahun</button>
-          <button class="filter-mode-btn" id="fmode-custom" onclick="setFilterMode('custom')">Custom</button>
+    <div class="filter-bar">
+      <div class="filter-bar-top">
+        <span class="filter-bar-label">Periode</span>
+        <div class="filter-modes">
+          <button class="fmode-btn active" id="fmode-bulan"  onclick="setFilterMode('bulan')">Bulan</button>
+          <button class="fmode-btn"        id="fmode-tahun"  onclick="setFilterMode('tahun')">Tahun</button>
+          <button class="fmode-btn"        id="fmode-custom" onclick="setFilterMode('custom')">Custom</button>
         </div>
-        <!-- Input per bulan -->
-        <div id="finput-bulan" style="display:flex;gap:6px;align-items:center">
-          <input type="month" id="f-bulan-val" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--teks)">
+      </div>
+      <div class="filter-inputs">
+        <div id="finput-bulan">
+          <input type="month" id="f-bulan-val" onchange="loadDashboard()">
         </div>
-        <!-- Input per tahun -->
-        <div id="finput-tahun" style="display:none;gap:6px;align-items:center">
-          <select id="f-tahun-val" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--teks)"></select>
+        <div id="finput-tahun" style="display:none">
+          <select id="f-tahun-val" onchange="loadDashboard()"></select>
         </div>
-        <!-- Input custom -->
-        <div id="finput-custom" style="display:none;gap:6px;align-items:center;flex-wrap:wrap">
-          <input type="date" id="f-custom-mulai" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--teks)">
-          <span style="font-size:12px;color:var(--teks2)">s/d</span>
-          <input type="date" id="f-custom-selesai" style="padding:5px 8px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--card);color:var(--teks)">
+        <div id="finput-custom" style="display:none;align-items:center;gap:8px;flex-wrap:wrap">
+          <input type="date" id="f-custom-mulai">
+          <span class="filter-sep">s/d</span>
+          <input type="date" id="f-custom-selesai">
+          <button class="btn primary" style="padding:7px 14px;font-size:13px" onclick="loadDashboard()">Tampilkan</button>
         </div>
-        <button class="btn primary" style="padding:5px 14px;font-size:13px;white-space:nowrap" onclick="loadDashboard()">Tampilkan</button>
       </div>
     </div>
 
@@ -1044,29 +1061,38 @@ function setFilterMode(mode){
   filterMode = mode;
   ['bulan','tahun','custom'].forEach(m=>{
     document.getElementById('fmode-'+m).classList.toggle('active', m===mode);
-    document.getElementById('finput-'+m).style.display = m===mode ? 'flex' : 'none';
+    const el = document.getElementById('finput-'+m);
+    if(m === mode){
+      el.style.display = m==='custom' ? 'flex' : 'block';
+    } else {
+      el.style.display = 'none';
+    }
   });
+  // Auto-load kecuali custom (butuh klik Tampilkan)
+  if(mode !== 'custom') loadDashboard();
 }
 
 function initFilterDashboard(){
-  // Set default bulan = bulan ini
   const now = new Date();
   document.getElementById('f-bulan-val').value =
     `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
-  // Isi pilihan tahun (5 tahun terakhir)
   const sel = document.getElementById('f-tahun-val');
   if(!sel.options.length){
     for(let y=now.getFullYear(); y>=now.getFullYear()-4; y--){
       sel.innerHTML += `<option value="${y}"${y===now.getFullYear()?' selected':''}>${y}</option>`;
     }
   }
-  // Set default custom = bulan ini
   const awal  = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
   const akhirD= new Date(now.getFullYear(), now.getMonth()+1, 0);
   const akhir = `${akhirD.getFullYear()}-${String(akhirD.getMonth()+1).padStart(2,'0')}-${String(akhirD.getDate()).padStart(2,'0')}`;
   document.getElementById('f-custom-mulai').value   = awal;
   document.getElementById('f-custom-selesai').value = akhir;
-  setFilterMode('bulan');
+  // Set tampilan awal — mode bulan
+  filterMode = 'bulan';
+  ['bulan','tahun','custom'].forEach(m=>{
+    document.getElementById('fmode-'+m).classList.toggle('active', m==='bulan');
+    document.getElementById('finput-'+m).style.display = m==='bulan' ? 'block' : 'none';
+  });
 }
 
 function getRentangFilter(){
