@@ -96,40 +96,6 @@ dashboard-keuangan/
 - **JavaScript**: Logika aplikasi & Supabase integration
 
 ---
-
-## 📖 Cara Penggunaan
-
-### Input Transaksi
-
-1. Tab "Input Transaksi"
-2. Pilih jenis: Pengeluaran atau Pemasukan
-3. Isi detail (keterangan, jumlah, tanggal, kategori, dompet)
-4. Klik "Simpan Transaksi"
-
-### Set Anggaran
-
-1. Tab "Anggaran"
-2. Klik "+ Atur"
-3. Pilih kategori dan batas pengeluaran
-4. Pilih rentang (Per Bulan atau Custom)
-5. Klik "Simpan"
-
-### Tambah Bill Reminder
-
-1. Tab "Reminder" (akses via "Lainnya")
-2. Klik "+ Tambah"
-3. Masukkan nama, estimasi jumlah, tanggal jatuh tempo, dompet
-4. Sistem otomatis deteksi jika sudah dibayar
-
-### Export Transaksi
-
-1. Tab "Transaksi"
-2. Filter bulan/jenis/kategori sesuai kebutuhan
-3. Klik "⬇ Excel"
-4. File akan download otomatis
-
----
-
 ## 🔒 Security & Privacy
 
 ### Best Practices
