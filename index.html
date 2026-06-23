@@ -219,6 +219,28 @@ tr.belum-verif td{background:rgba(230,57,70,.04)}
 .masuk {color:var(--hijau);font-weight:600}
 .chip-verif{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;
   background:var(--aksen-bg);color:var(--aksen);font-weight:600;margin-left:4px}
+/* ── TRANSAKSI LIST ──────────────────────────────────────── */
+.tx-list{display:flex;flex-direction:column}
+.tx-item{display:flex;align-items:center;gap:10px;padding:10px 0;
+  border-bottom:1px solid var(--border2);transition:background .1s}
+.tx-item:last-child{border-bottom:none;padding-bottom:0}
+.tx-item:first-child{padding-top:0}
+.tx-item.belum-verif{background:rgba(230,57,70,.03);
+  margin:0 -.85rem;padding-left:.85rem;padding-right:.85rem}
+.tx-ikon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;font-size:16px;flex-shrink:0}
+.tx-body{flex:1;min-width:0}
+.tx-nama{font-size:13px;font-weight:600;color:var(--teks);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.tx-meta{font-size:11px;color:var(--teks3);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.tx-kanan{text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.tx-jumlah{font-size:13px;font-weight:700;letter-spacing:-.2px;white-space:nowrap}
+.tx-jumlah.keluar{color:var(--merah)}
+.tx-jumlah.masuk{color:var(--hijau)}
+.tx-aksi-row{display:flex;gap:3px}
+.tx-dot{opacity:.35}
+.chip-bot{display:inline-block;font-size:10px;padding:1px 5px;border-radius:4px;
+  background:var(--aksen-bg);color:var(--aksen);font-weight:600;margin-left:4px;vertical-align:middle}
 /* ── ALERT ───────────────────────────────────────────────── */
 .alert{display:flex;gap:10px;padding:11px 13px;border-radius:8px;font-size:13px;
   align-items:flex-start;border:1px solid transparent}
@@ -1284,36 +1306,54 @@ async function loadTransaksi(){
     document.getElementById('tbody-transaksi').innerHTML='<tr><td colspan="6" class="empty">Tidak ada transaksi</td></tr>';
     return;
   }
-  mobile.innerHTML='<div class="tx-list">'+rows.map(r=>`
-    <div class="tx-item">
-      <div class="tx-ikon" style="background:${r.jenis==='masuk'?'#e8f5e9':'#fff3e0'}">${ikonKat(r.kategori)}</div>
+
+  mobile.innerHTML='<div class="tx-list">'+rows.map(r=>{
+    const ikonBg = r.jenis==='masuk'
+      ? 'rgba(45,106,79,.12)'
+      : katColor(r.kategori);
+    const tglFmt = r.tanggal.split('-').reverse().join('/');
+    const verifBtn = !r.diverifikasi
+      ? `<button class="btn sm primary" onclick="verifikasiTx(${r.id})" title="Verifikasi">✓</button>`
+      : '';
+    return `<div class="tx-item${!r.diverifikasi?' belum-verif':''}">
+      <div class="tx-ikon" style="background:${ikonBg}">${ikonKat(r.kategori)}</div>
       <div class="tx-body">
         <div class="tx-nama">${r.keterangan||'-'}${!r.diverifikasi?'<span class="chip-bot">bot</span>':''}</div>
-        <div class="tx-meta">${r.tanggal} · ${badgeKat(r.kategori)} · ${r.dompets?.nama||'-'}</div>
-        <div class="tx-aksi">
-          ${!r.diverifikasi?`<button class="btn sm primary" onclick="verifikasiTx(${r.id})">✓ OK</button>`:''}
-          <button class="btn sm" onclick="bukaEditTx(${r.id})">✎ Edit</button>
-          <button class="btn sm danger" onclick="hapusTx(${r.id})">✕</button>
+        <div class="tx-meta">
+          <span>${tglFmt}</span>
+          <span class="tx-dot">·</span>
+          ${badgeKat(r.kategori)}
+          <span class="tx-dot">·</span>
+          <span>${r.dompets?.nama||'-'}</span>
         </div>
       </div>
       <div class="tx-kanan">
-        <div class="tx-jumlah ${r.jenis}">${r.jenis==='keluar'?'-':'+'}${rp(r.jumlah)}</div>
+        <div class="tx-jumlah ${r.jenis}">${r.jenis==='keluar'?'−':'+'}${rp(r.jumlah)}</div>
+        <div class="tx-aksi-row">
+          ${verifBtn}
+          <button class="btn sm" onclick="bukaEditTx(${r.id})" title="Edit">✎</button>
+          <button class="btn sm danger" onclick="hapusTx(${r.id})" title="Hapus">✕</button>
+        </div>
       </div>
-    </div>`).join('')+'</div>';
+    </div>`;
+  }).join('')+'</div>';
 
   // Desktop table
-  document.getElementById('tbody-transaksi').innerHTML=rows.map(r=>`
-    <tr class="${!r.diverifikasi?'belum-verif':''}">
-      <td>${r.tanggal}${!r.diverifikasi?'<span class="chip-bot">bot</span>':''}</td>
-      <td>${r.keterangan||'-'}</td><td>${badgeKat(r.kategori)}</td>
-      <td>${r.dompets?.nama||'-'}</td>
-      <td class="${r.jenis}">${r.jenis==='keluar'?'-':'+'}${rp(r.jumlah)}</td>
-      <td><div style="display:flex;gap:4px">
+  document.getElementById('tbody-transaksi').innerHTML=rows.map(r=>{
+    const tglFmt=r.tanggal.split('-').reverse().join('/');
+    return `<tr class="${!r.diverifikasi?'belum-verif':''}">
+      <td style="color:var(--teks2);font-size:13px">${tglFmt}${!r.diverifikasi?'<span class="chip-bot">bot</span>':''}</td>
+      <td style="font-weight:500">${r.keterangan||'-'}</td>
+      <td>${badgeKat(r.kategori)}</td>
+      <td style="color:var(--teks2);font-size:13px">${r.dompets?.nama||'-'}</td>
+      <td class="${r.jenis}" style="font-weight:700">${r.jenis==='keluar'?'−':'+'}${rp(r.jumlah)}</td>
+      <td><div style="display:flex;gap:4px;align-items:center">
         ${!r.diverifikasi?`<button class="btn sm primary" onclick="verifikasiTx(${r.id})">✓</button>`:''}
         <button class="btn sm" onclick="bukaEditTx(${r.id})">✎</button>
         <button class="btn sm danger" onclick="hapusTx(${r.id})">✕</button>
       </div></td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 }
 
 async function verifikasiTx(id){
