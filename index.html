@@ -957,6 +957,20 @@ function ikonKat(k){
   return m[k]||'📌';
 }
 
+function katColor(k){
+  const m={
+    makan    :'rgba(200,75,0,.1)',
+    transport:'rgba(26,111,168,.1)',
+    utilitas :'rgba(107,53,196,.1)',
+    hiburan  :'rgba(196,43,69,.1)',
+    jajan    :'rgba(196,122,0,.1)',
+    sewa     :'rgba(37,70,168,.1)',
+    kesehatan:'rgba(26,122,69,.1)',
+    lainnya  :'rgba(100,100,100,.1)',
+  };
+  return m[k]||'rgba(100,100,100,.1)';
+}
+
 // ═══ LOGIN — Supabase Auth ═════════════════════════════════════
 function loginErr(p){
   const el=document.getElementById('login-err');
