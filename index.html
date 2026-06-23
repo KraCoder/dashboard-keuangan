@@ -147,7 +147,14 @@ body{
 .metric.aksen{background:var(--aksen);border-color:var(--aksen)}
 .metric.aksen .m-label,.metric.aksen .m-sub{color:rgba(255,255,255,.7)}
 .metric.aksen .m-val{color:#fff}
-/* ── FILTER PERIODE ──────────────────────────────────────── */
+/* Mobile: tampilkan card list, sembunyikan tabel */
+.tabel-desktop{display:none}
+.tx-list-mobile{display:block}
+/* Desktop: sebaliknya */
+@media(min-width:768px){
+  .tabel-desktop{display:block}
+  .tx-list-mobile{display:none}
+}
 .filter-bar{background:var(--card);border:1px solid var(--border2);border-radius:12px;
   padding:.75rem 1rem;margin-bottom:12px}
 .filter-bar-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:.6rem}
@@ -1299,15 +1306,16 @@ async function loadTransaksi(){
   const adaBelum=rows.some(r=>!r.diverifikasi);
   document.getElementById('info-verif').style.display=adaBelum?'flex':'none';
 
-  // Mobile list
-  const mobile=document.getElementById('tx-list-mobile');
+  const mobile  = document.getElementById('tx-list-mobile');
+  const tbody   = document.getElementById('tbody-transaksi');
+
   if(!rows.length){
-    mobile.innerHTML='<div class="empty">Tidak ada transaksi</div>';
-    document.getElementById('tbody-transaksi').innerHTML='<tr><td colspan="6" class="empty">Tidak ada transaksi</td></tr>';
+    if(mobile) mobile.innerHTML='<div class="empty">Tidak ada transaksi pada periode ini</div>';
+    if(tbody)  tbody.innerHTML='<tr><td colspan="6" class="empty">Tidak ada transaksi pada periode ini</td></tr>';
     return;
   }
 
-  mobile.innerHTML='<div class="tx-list">'+rows.map(r=>{
+  if(mobile) mobile.innerHTML='<div class="tx-list">'+rows.map(r=>{
     const ikonBg = r.jenis==='masuk'
       ? 'rgba(45,106,79,.12)'
       : katColor(r.kategori);
@@ -1339,7 +1347,7 @@ async function loadTransaksi(){
   }).join('')+'</div>';
 
   // Desktop table
-  document.getElementById('tbody-transaksi').innerHTML=rows.map(r=>{
+  if(tbody) tbody.innerHTML=rows.map(r=>{
     const tglFmt=r.tanggal.split('-').reverse().join('/');
     return `<tr class="${!r.diverifikasi?'belum-verif':''}">
       <td style="color:var(--teks2);font-size:13px">${tglFmt}${!r.diverifikasi?'<span class="chip-bot">bot</span>':''}</td>
