@@ -1282,32 +1282,59 @@ function initFilterBulan(){
 }
 
 async function loadTransaksi(){
-  if(!SB)return;
-  const bulan=document.getElementById('filter-bulan').value;
-  const jenis=document.getElementById('filter-jenis').value;
-  const kat=document.getElementById('filter-kat').value;
+  if(!SB){ console.warn('loadTransaksi: SB null'); return; }
 
-  // Hitung tanggal awal dan akhir bulan dengan aman (tanpa masalah timezone)
-  const [thn,bln]=bulan.split('-').map(Number);
-  const awal=`${thn}-${String(bln).padStart(2,'0')}-01`;
-  // Hari terakhir bulan: ambil hari-0 dari bulan berikutnya
-  const akhirDate=new Date(thn,bln,0); // bln sudah 1-based, new Date(y,m,0) = hari terakhir bulan ke-m
-  const akhir=`${akhirDate.getFullYear()}-${String(akhirDate.getMonth()+1).padStart(2,'0')}-${String(akhirDate.getDate()).padStart(2,'0')}`;
+  // Pastikan filter bulan sudah terisi
+  initFilterBulan();
 
-  let q=SB.from('transaksi').select('*,dompets(nama)')
+  const bulan = document.getElementById('filter-bulan').value;
+  const jenis = document.getElementById('filter-jenis').value;
+  const kat   = document.getElementById('filter-kat').value;
+
+  // Guard: kalau bulan masih kosong, stop
+  if(!bulan || !bulan.includes('-')){
+    console.warn('loadTransaksi: bulan kosong =', bulan);
+    return;
+  }
+
+  const [thn,bln] = bulan.split('-').map(Number);
+  if(!thn || !bln){
+    console.warn('loadTransaksi: thn/bln invalid =', thn, bln);
+    return;
+  }
+
+  const awal      = `${thn}-${String(bln).padStart(2,'0')}-01`;
+  const akhirDate = new Date(thn, bln, 0);
+  const akhir     = `${akhirDate.getFullYear()}-${String(akhirDate.getMonth()+1).padStart(2,'0')}-${String(akhirDate.getDate()).padStart(2,'0')}`;
+
+  console.log('loadTransaksi:', awal, '→', akhir, '| user:', CURRENT_USER_ID);
+
+  const mobile = document.getElementById('tx-list-mobile');
+  const tbody  = document.getElementById('tbody-transaksi');
+
+  // Tampilkan loading
+  if(mobile) mobile.innerHTML='<div class="empty">Memuat…</div>';
+  if(tbody)  tbody.innerHTML='<tr><td colspan="6" class="empty">Memuat…</td></tr>';
+
+  let q = SB.from('transaksi').select('*,dompets(nama)')
     .gte('tanggal',awal).lte('tanggal',akhir)
     .order('tanggal',{ascending:false}).order('id',{ascending:false});
-  if(CURRENT_USER_ID) q=q.eq('user_id',CURRENT_USER_ID);
-  if(jenis)q=q.eq('jenis',jenis);
-  if(kat)q=q.eq('kategori',kat);
-  const{data,error}=await q;
-  if(error){console.error('loadTransaksi error:',error);tampilNotif('⚠ Gagal memuat transaksi');return;}
-  const rows=data||[];
-  const adaBelum=rows.some(r=>!r.diverifikasi);
-  document.getElementById('info-verif').style.display=adaBelum?'flex':'none';
+  if(CURRENT_USER_ID) q = q.eq('user_id', CURRENT_USER_ID);
+  if(jenis) q = q.eq('jenis', jenis);
+  if(kat)   q = q.eq('kategori', kat);
 
-  const mobile  = document.getElementById('tx-list-mobile');
-  const tbody   = document.getElementById('tbody-transaksi');
+  const { data, error } = await q;
+  console.log('loadTransaksi result:', data?.length, 'rows, error:', error);
+
+  if(error){
+    console.error('loadTransaksi error:', error);
+    tampilNotif('⚠ Gagal memuat transaksi');
+    return;
+  }
+
+  const rows = data || [];
+  const adaBelum = rows.some(r=>!r.diverifikasi);
+  document.getElementById('info-verif').style.display = adaBelum ? 'flex' : 'none';
 
   if(!rows.length){
     if(mobile) mobile.innerHTML='<div class="empty">Tidak ada transaksi pada periode ini</div>';
