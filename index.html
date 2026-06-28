@@ -284,9 +284,22 @@ tr.belum-verif td{background:rgba(230,57,70,.04)}
 .modal h3{font-size:16px;font-weight:700;margin-bottom:1rem;letter-spacing:-.2px}
 .modal-handle{width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto .75rem}
 /* ── TOOLBAR ─────────────────────────────────────────────── */
-.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
-.toolbar select,.toolbar input{padding:7px 10px;border:1px solid var(--border);
-  border-radius:8px;font-size:13px;background:var(--card);color:var(--teks);-webkit-appearance:none}
+.toolbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:1rem}
+.toolbar select{
+  padding:7px 10px;
+  border:1.5px solid var(--border);
+  border-radius:20px;
+  font-size:13px;
+  font-weight:500;
+  background:var(--card);
+  color:var(--teks);
+  -webkit-appearance:none;
+  cursor:pointer;
+  transition:border-color .15s;
+}
+.toolbar select:focus{outline:none;border-color:var(--aksen)}
+.toolbar select:hover{border-color:var(--teks3)}
+.toolbar .btn{border-radius:20px;font-size:13px;padding:7px 14px}
 /* ── NOTIF TOAST ─────────────────────────────────────────── */
 .notif{position:fixed;bottom:calc(var(--tab-h) + var(--safe-bot) + 12px);
   left:50%;transform:translateX(-50%);background:var(--teks);color:var(--bg);
@@ -516,9 +529,10 @@ tr.belum-verif td{background:rgba(230,57,70,.04)}
   <!-- TRANSAKSI -->
   <div id="page-transaksi" class="page">
     <div class="toolbar">
-      <select id="filter-bulan" onchange="loadTransaksi()"></select>
+      <select id="filter-bulan-sel" onchange="loadTransaksi()" title="Bulan"></select>
+      <select id="filter-tahun-sel" onchange="loadTransaksi()" title="Tahun"></select>
       <select id="filter-jenis" onchange="loadTransaksi()">
-        <option value="">Semua</option>
+        <option value="">Semua jenis</option>
         <option value="keluar">Pengeluaran</option>
         <option value="masuk">Pemasukan</option>
       </select>
@@ -1282,51 +1296,62 @@ async function loadAlerts(perKat){
 
 // ═══ TRANSAKSI ═════════════════════════════════════════════════
 function initFilterBulan(){
-  const sel=document.getElementById('filter-bulan');
-  if(sel.options.length>1)return;
-  const sekarang=new Date();
-  for(let i=0;i<12;i++){
-    const thn=sekarang.getFullYear();
-    const bln=sekarang.getMonth()-i;
-    const d=new Date(thn,bln,1);
-    const val=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-    const lbl=d.toLocaleDateString('id-ID',{month:'long',year:'numeric'});
-    sel.innerHTML+=`<option value="${val}"${i===0?' selected':''}>${lbl}</option>`;
+  const selBulan = document.getElementById('filter-bulan-sel');
+  const selTahun = document.getElementById('filter-tahun-sel');
+  const now      = new Date();
+
+  // Isi dropdown bulan jika belum
+  if(!selBulan.options.length){
+    const namaBulan = ['Januari','Februari','Maret','April','Mei','Juni',
+                       'Juli','Agustus','September','Oktober','November','Desember'];
+    namaBulan.forEach((n, i)=>{
+      const opt = document.createElement('option');
+      opt.value = String(i+1).padStart(2,'0');
+      opt.textContent = n;
+      if(i === now.getMonth()) opt.selected = true;
+      selBulan.appendChild(opt);
+    });
+  }
+
+  // Isi dropdown tahun jika belum (5 tahun terakhir)
+  if(!selTahun.options.length){
+    for(let y = now.getFullYear(); y >= now.getFullYear()-4; y--){
+      const opt = document.createElement('option');
+      opt.value = y;
+      opt.textContent = y;
+      if(y === now.getFullYear()) opt.selected = true;
+      selTahun.appendChild(opt);
+    }
   }
 }
 
 async function loadTransaksi(){
   if(!SB){ console.warn('loadTransaksi: SB null'); return; }
 
-  // Pastikan filter bulan sudah terisi
+  // Pastikan filter sudah terisi
   initFilterBulan();
 
-  const bulan = document.getElementById('filter-bulan').value;
-  const jenis = document.getElementById('filter-jenis').value;
-  const kat   = document.getElementById('filter-kat').value;
+  const bln  = document.getElementById('filter-bulan-sel').value;
+  const thn  = document.getElementById('filter-tahun-sel').value;
+  const jenis= document.getElementById('filter-jenis').value;
+  const kat  = document.getElementById('filter-kat').value;
 
-  // Guard: kalau bulan masih kosong, stop
-  if(!bulan || !bulan.includes('-')){
-    console.warn('loadTransaksi: bulan kosong =', bulan);
+  if(!bln || !thn){
+    console.warn('loadTransaksi: bulan/tahun kosong', bln, thn);
     return;
   }
 
-  const [thn,bln] = bulan.split('-').map(Number);
-  if(!thn || !bln){
-    console.warn('loadTransaksi: thn/bln invalid =', thn, bln);
-    return;
-  }
-
-  const awal      = `${thn}-${String(bln).padStart(2,'0')}-01`;
-  const akhirDate = new Date(thn, bln, 0);
-  const akhir     = `${akhirDate.getFullYear()}-${String(akhirDate.getMonth()+1).padStart(2,'0')}-${String(akhirDate.getDate()).padStart(2,'0')}`;
+  const blnNum = parseInt(bln);
+  const thnNum = parseInt(thn);
+  const awal   = `${thnNum}-${String(blnNum).padStart(2,'0')}-01`;
+  const akhirD = new Date(thnNum, blnNum, 0);
+  const akhir  = `${akhirD.getFullYear()}-${String(akhirD.getMonth()+1).padStart(2,'0')}-${String(akhirD.getDate()).padStart(2,'0')}`;
 
   console.log('loadTransaksi:', awal, '→', akhir, '| user:', CURRENT_USER_ID);
 
   const mobile = document.getElementById('tx-list-mobile');
   const tbody  = document.getElementById('tbody-transaksi');
 
-  // Tampilkan loading
   if(mobile) mobile.innerHTML='<div class="empty">Memuat…</div>';
   if(tbody)  tbody.innerHTML='<tr><td colspan="6" class="empty">Memuat…</td></tr>';
 
